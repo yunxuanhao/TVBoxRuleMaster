@@ -183,6 +183,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
+     * @description 更新单个爬虫规则项的综合下载状态
+     * @param {number} index - 爬虫规则的索引
+     */
+    function updateCombinedSiteStatus(index) {
+        const site = currentRulesData.sites[index];
+        if (!site) return;
+
+        const assetsToCheck = ['jar', 'ext', 'api'];
+        const statuses = [];
+        
+        assetsToCheck.forEach(key => {
+            const assetId = `site-${index}-${key}`;
+            if (downloadStatus.hasOwnProperty(assetId)) {
+                statuses.push(downloadStatus[assetId]);
+            }
+        });
+
+        if (statuses.length === 0) {
+            updateDownloadStatusUI(`site-item-${index}`, ''); // 如果没有可下载资源，则清除状态
+            return;
+        }
+        
+        let combinedStatus = 'downloaded';
+        if (statuses.some(s => s === 'failed')) {
+            combinedStatus = 'failed';
+        } else if (statuses.some(s => s === 'downloading')) {
+            combinedStatus = 'downloading';
+        } else if (statuses.some(s => s === 'pending')) {
+            combinedStatus = 'pending';
+        }
+        
+        updateDownloadStatusUI(`site-item-${index}`, combinedStatus);
+    }
+
+    /**
      * @description 从URL加载并渲染规则
      */
     function loadAndRenderRulesFromUrl() {
@@ -786,9 +821,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     /**
-     * @description 启动下载流程
+     * @description 启动下载流程 (已优化下载状态提示)
      */
-    async function startDownloadProcess(){
+    async function startDownloadProcess() {
         const targetDir = document.getElementById('download-dir-input').value.trim();
         const targetFilename = document.getElementById('download-filename-input').value.trim();
         const mainJsonUrl = jsonUrlInput.value.trim();
@@ -797,120 +832,150 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('目录和文件名不能为空！', 'error');
             return;
         }
-        
-        updateCurrentRulesDataFromForm(); // 保存前同步一次数据
-        showToast('开始下载流程...', 'info');
-        downloadModal.close();
-        
-        document.getElementById('basic').classList.add('show-status');
-        document.getElementById('sites').classList.add('show-status');
+
+        const fileNameElement = document.getElementById('file-name-display');
+        const originalTitle = document.title;
+        const originalFileName = fileNameElement.textContent;
+        const downloadFailures = new Map();
+        const assetsToDownload = [];
+        downloadStatus = {};
 
         try {
-            const formData = new FormData();
-            formData.append('action', 'save_config');
-            formData.append('dir', targetDir);
-            formData.append('filename', targetFilename);
-            formData.append('content', JSON.stringify(currentRulesData, null, 2));
-            const response = await fetch('index.php/Proxy/saveConfig', { method: 'POST', body: formData });
-            if (!response.ok) throw new Error(`服务器返回错误: ${response.status}`);
-            const result = await response.json();
-            if (!result.success) throw new Error(result.message);
+            showToast('开始下载流程...', 'info');
+            downloadModal.close();
+
+            document.getElementById('basic').classList.add('show-status');
+            document.getElementById('sites').classList.add('show-status');
+            
+            updateCurrentRulesDataFromForm();
+            let dataToSave = JSON.parse(JSON.stringify(currentRulesData));
+            const baseUrl = getBaseUrl(mainJsonUrl);
+            
+            const discoverAndRegisterAsset = (originalPath, assetId, site = null) => {
+                if (!originalPath || typeof originalPath !== 'string') return;
+                if (site && assetId.endsWith('-ext') && (originalPath.startsWith('http://127.0.0.1') || originalPath.startsWith('http://localhost'))) return;
+                if (site && (site.type === 1 || site.type === 2)) return;
+                if (site && assetId.endsWith('-api') && site.type !== 3) return;
+                if (site && assetId.endsWith('-ext') && (site.api === 'csp_AppYs' || site.api === 'csp_AppYsV2')) return;
+                
+                const parsedPath = parseAssetPath(originalPath);
+                const isLocalRelative = parsedPath.startsWith('./');
+                const isRemote = parsedPath.startsWith('http');
+
+                if (isLocalRelative || isRemote) {
+                    const sourceUrl = isLocalRelative ? new URL(parsedPath, baseUrl).href : parsedPath;
+                    const alreadyExists = assetsToDownload.some(task => task.sourceUrl === sourceUrl);
+                    if (!alreadyExists) {
+                        assetsToDownload.push({
+                            sourceUrl: sourceUrl,
+                            originalPath: originalPath,
+                            targetRelativePath: parsedPath,
+                            id: assetId
+                        });
+                        downloadStatus[assetId] = 'pending';
+                    }
+                }
+            };
+
+            discoverAndRegisterAsset(dataToSave.spider, 'spider');
+            (dataToSave.sites || []).forEach((site, index) => {
+                discoverAndRegisterAsset(site.jar, `site-${index}-jar`, site);
+                discoverAndRegisterAsset(site.api, `site-${index}-api`, site);
+                discoverAndRegisterAsset(site.ext, `site-${index}-ext`, site);
+            });
+
+            renderAllTabs(currentRulesData);
+            const totalCount = assetsToDownload.length;
+            showToast(`共找到 ${totalCount} 个资源需要下载...`, 'info');
+            
+            let downloadedCount = 0;
+            const updateStatusText = () => {
+                const statusText = `下载中 (已完成 ${downloadedCount} / 总计 ${totalCount})...`;
+                document.title = statusText;
+                fileNameElement.textContent = statusText;
+            };
+            updateStatusText();
+
+            for (const task of assetsToDownload) {
+                downloadStatus[task.id] = 'downloading';
+                updateDownloadStatusUI(task.id, 'downloading');
+                if (task.id.startsWith('site-')) updateCombinedSiteStatus(parseInt(task.id.split('-')[1]));
+
+                try {
+                    const formData = new FormData();
+                    formData.append('action', 'download_asset');
+                    formData.append('source_url', task.sourceUrl);
+                    formData.append('target_dir', targetDir);
+                    formData.append('relative_path', task.targetRelativePath);
+                    const response = await fetch('index.php/Proxy/downloadAsset', { method: 'POST', body: formData });
+                    if (!response.ok) throw new Error(`服务器返回错误: ${response.status}`);
+                    const result = await response.json();
+                    if (!result.success) throw new Error(result.message);
+                    downloadStatus[task.id] = 'downloaded';
+                } catch (error) {
+                    downloadStatus[task.id] = 'failed';
+                    downloadFailures.set(task.originalPath, error.message);
+                }
+                
+                downloadedCount++;
+                updateStatusText();
+
+                updateDownloadStatusUI(task.id, downloadStatus[task.id]);
+                if (task.id.startsWith('site-')) updateCombinedSiteStatus(parseInt(task.id.split('-')[1]));
+            }
+
+            const remapPath = (originalPath) => {
+                if (downloadFailures.has(originalPath)) return originalPath;
+                for (const asset of assetsToDownload) {
+                    if (asset.originalPath === originalPath) return asset.targetRelativePath;
+                }
+                return originalPath;
+            };
+
+            dataToSave.spider = remapPath(dataToSave.spider);
+            (dataToSave.sites || []).forEach(site => {
+                site.jar = remapPath(site.jar);
+                site.ext = remapPath(site.ext);
+                site.api = remapPath(site.api);
+            });
+
+            const finalContentToSave = JSON.stringify(dataToSave, null, 2);
+            const saveFormData = new FormData();
+            saveFormData.append('action', 'save_config');
+            saveFormData.append('dir', targetDir);
+            saveFormData.append('filename', targetFilename);
+            saveFormData.append('content', finalContentToSave);
+            const saveResponse = await fetch('index.php/Proxy/saveConfig', { method: 'POST', body: saveFormData });
+            if (!saveResponse.ok) throw new Error(`服务器返回错误: ${saveResponse.status}`);
+            const saveResult = await saveResponse.json();
+            if (!saveResult.success) throw new Error(saveResult.message);
             showToast('主配置文件保存成功！', 'success');
+
+            const failureCount = downloadFailures.size;
+            let reportMessage = `<p>总计任务: ${totalCount}<br>成功: ${totalCount - failureCount}<br>失败: ${failureCount}</p>`;
+            if (failureCount > 0) {
+                let failureList = Array.from(downloadFailures.keys()).map(file => `<li style="color:red; margin-bottom:5px;">${file}</li>`).join('');
+                reportMessage += `<p><b>失败列表 (已在配置中保留原始链接):</b></p><ul style="list-style-type:none; padding-left:0; max-height:150px; overflow-y:auto;">${failureList}</ul>`;
+            }
+            await showDialog({ type: 'alert', title: '下载报告', message: reportMessage, okText: '关闭' });
+
+            const currentPath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/'));
+            const newUrl = `${window.location.origin}${currentPath}/box/${targetDir}/${targetFilename}`;
+            jsonUrlInput.value = newUrl;
+            addToUrlHistory(newUrl);
+
         } catch (error) {
-            showToast(`保存主配置失败: ${error.message}`, 'error');
+            showToast(`下载流程发生严重错误: ${error.message}`, 'error');
+        } finally {
+            document.title = originalTitle;
+            fileNameElement.textContent = originalFileName;
             setTimeout(() => {
                 document.getElementById('basic').classList.remove('show-status');
                 document.getElementById('sites').classList.remove('show-status');
-            }, 3000);
-            return;
+                downloadStatus = {};
+                renderAllTabs(currentRulesData);
+            }, 5000);
         }
-
-        const assetsToDownload = new Map();
-        const baseUrl = getBaseUrl(mainJsonUrl);
-        downloadStatus = {};
-
-        const processAsset = (path, assetId) => {
-            const parsedPath = parseAssetPath(path);
-            if (typeof parsedPath === 'string' && parsedPath.startsWith('./')) {
-                const fullUrl = new URL(parsedPath, baseUrl).href;
-                assetsToDownload.set(fullUrl, { type: assetId.split('-')[0] , path: parsedPath, id: assetId });
-            }
-        };
-
-        processAsset(currentRulesData.spider, 'spider');
-        (currentRulesData.sites || []).forEach((site, index) => {
-            processAsset(site.jar, `site-${index}-jar`);
-            processAsset(site.ext, `site-${index}-ext`);
-        });
-        
-        renderBasicTab(currentRulesData);
-        renderSitesTab(currentRulesData.sites);
-
-        showToast(`共找到 ${assetsToDownload.size} 个本地资源需要下载...`, 'info');
-
-        const updateCombinedSiteStatus = (index) => {
-            const jarStatusId = `site-${index}-jar`;
-            const extStatusId = `site-${index}-ext`;
-            const jarStatus = downloadStatus[jarStatusId];
-            const extStatus = downloadStatus[extStatusId];
-            
-            let combinedStatus = 'downloaded';
-            if (jarStatus === 'failed' || extStatus === 'failed') {
-                combinedStatus = 'failed';
-            } else if (jarStatus === 'downloading' || extStatus === 'downloading') {
-                combinedStatus = 'downloading';
-            } else if (jarStatus === 'pending' || extStatus === 'pending') {
-                 if(jarStatus === 'downloaded' || extStatus === 'downloaded') {
-                     combinedStatus = 'downloading';
-                 } else {
-                     combinedStatus = 'pending';
-                 }
-            }
-            const siteItem = document.querySelector(`#site-item-${index} .download-status`);
-            if (siteItem) {
-                siteItem.className = `download-status ${combinedStatus}`;
-            }
-        };
-
-        for (const [fullUrl, assetInfo] of assetsToDownload.entries()) {
-            downloadStatus[assetInfo.id] = 'downloading';
-            updateDownloadStatusUI(assetInfo.id, 'downloading');
-            if (assetInfo.type === 'site') {
-                updateCombinedSiteStatus(parseInt(assetInfo.id.split('-')[1]));
-            }
-            try {
-                const formData = new FormData();
-                formData.append('action', 'download_asset');
-                formData.append('source_url', fullUrl);
-                formData.append('target_dir', targetDir);
-                formData.append('relative_path', assetInfo.path);
-                const response = await fetch('index.php/Proxy/downloadAsset', { method: 'POST', body: formData });
-                if (!response.ok) throw new Error(`服务器返回错误: ${response.status}`);
-                const result = await response.json();
-                if (!result.success) throw new Error(result.message);
-                downloadStatus[assetInfo.id] = 'downloaded';
-                updateDownloadStatusUI(assetInfo.id, 'downloaded');
-            } catch (error) {
-                downloadStatus[assetInfo.id] = 'failed';
-                updateDownloadStatusUI(assetInfo.id, 'failed');
-                showToast(`下载失败: ${assetInfo.path}`, 'error');
-            } finally {
-                if (assetInfo.type === 'site') {
-                    updateCombinedSiteStatus(parseInt(assetInfo.id.split('-')[1]));
-                }
-            }
-        }
-        showToast('所有下载任务已完成！', 'success');
-        
-        const currentPath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/'));
-        const newUrl = `${window.location.origin}${currentPath}/box/${targetDir}/${targetFilename}`;
-        jsonUrlInput.value = newUrl;
-        showToast('规则地址已更新为本地路径', 'info');
-
-        setTimeout(() => {
-            document.getElementById('basic').classList.remove('show-status');
-            document.getElementById('sites').classList.remove('show-status');
-        }, 5000);
     }
 
     /**
@@ -1235,14 +1300,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     message: `您确定要清空所有【${entityName}】吗？此操作不可撤销。`
                 });
 
-                // --- 核心改动：抖动动画和删除逻辑移至确认之后 ---
                 const container = document.getElementById(itemType);
                 container.querySelectorAll('.rule-item-container').forEach(item => {
                     item.classList.add('shake-on-delete');
                     setTimeout(() => item.classList.remove('shake-on-delete'), 800);
                 });
 
-                // 延迟执行删除，让用户看到抖动效果
                 setTimeout(() => {
                     currentRulesData[itemType] = [];
                     if (itemType === 'parses') currentRulesData.flags = [];
@@ -1252,7 +1315,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }, 100);
 
             } catch (error) {
-                // 用户点击了“取消”，只提示，不做任何操作
                 showToast('操作已取消', 'info');
             }
         }
