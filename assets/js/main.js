@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let downloadStatus = {};
     let currentEditInfo = {};
     let rawJsonContent = '';
+    let currentConfigBaseDir = '';
     const defaultJsonUrl = 'https://raw.githubusercontent.com/liu673cn/box/refs/heads/main/m.json';
 
     /**
@@ -190,6 +191,20 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('请输入有效的JSON链接地址。', 'error');
             return;
         }
+        
+        // --- 核心改动：解析并存储当前配置的基础目录 ---
+        if (url.includes('/box/')) {
+            const pathAfterBox = url.split('/box/')[1];
+            const lastSlashIndex = pathAfterBox.lastIndexOf('/');
+            if (lastSlashIndex !== -1) {
+                currentConfigBaseDir = pathAfterBox.substring(0, lastSlashIndex + 1);
+            } else {
+                currentConfigBaseDir = '';
+            }
+        } else {
+            currentConfigBaseDir = '';
+        }
+
         loadingDiv.style.display = 'block';
         rawJsonContent = '';
         const proxyUrl = `index.php/Proxy/load?target_url=${encodeURIComponent(url)}`;
@@ -649,9 +664,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * @description 添加新的爬虫规则 (适配弹窗)
+     * @description 添加新的爬虫规则
      */
-    function addSpider() {
+    async function addSpider() {
         const newSite = {
             key: document.getElementById('new-site-key-modal').value.trim(),
             name: document.getElementById('new-site-name-modal').value.trim(),
@@ -668,6 +683,40 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('规则名称和唯一标识不能为空！', 'error');
             return;
         }
+
+        if (newSite.ext.startsWith('./') && newSite.ext.endsWith('.json')) {
+            const customContent = document.getElementById('new-site-custom-content-modal').value;
+            const saveAsDefault = document.getElementById('save-as-default-toggle-modal').checked;
+            
+            // --- 核心改动：拼接基础目录和相对路径 ---
+            const pathFromInput = newSite.ext.substring(2); // 去掉 './'
+            const finalRelativePath = currentConfigBaseDir + pathFromInput;
+
+            const formData = new FormData();
+            formData.append('relativePath', finalRelativePath);
+            formData.append('apiName', newSite.api);
+            formData.append('customContent', customContent);
+            formData.append('saveAsDefault', saveAsDefault);
+
+            try {
+                showToast('正在创建规则文件...', 'info');
+                const response = await fetch('index.php/Proxy/createRuleFile', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.message);
+                }
+                showToast(result.message, 'success');
+
+            } catch (error) {
+                showToast(`文件创建失败: ${error.message}`, 'error');
+                return;
+            }
+        }
+
         if (!currentRulesData.sites) currentRulesData.sites = [];
         currentRulesData.sites.unshift(newSite);
         renderSitesTab(currentRulesData.sites);
@@ -1118,7 +1167,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('column-select').addEventListener('change', updateGridColumns);
     localFileInput.addEventListener('change', loadAndRenderRulesFromFile);
 
-document.body.addEventListener('click', async (e) => {
+    document.body.addEventListener('click', async (e) => {
         if (e.target.id === 'add-spider-btn-modal') addSpider();
         if (e.target.id === 'add-parse-btn-modal') addParse();
         if (e.target.id === 'add-filter-btn-modal') addFilterRule();
@@ -1152,6 +1201,23 @@ document.body.addEventListener('click', async (e) => {
         const siteFilterBtn = e.target.closest('.site-filter-btn');
         if (siteFilterBtn) {
             applySiteFilter(siteFilterBtn);
+        }
+
+        if (e.target.id === 'toggle-custom-content-btn') {
+            const ruleLinkInput = document.getElementById('new-site-ext-modal');
+            const ruleLinkValue = ruleLinkInput ? ruleLinkInput.value.trim() : '';
+            
+            if (ruleLinkValue.startsWith('http://') || ruleLinkValue.startsWith('https://')) {
+                showToast('“内容”功能仅适用于创建本地相对路径规则文件。', 'warning');
+                return;
+            }
+
+            const wrapper = document.getElementById('custom-content-wrapper');
+            if (wrapper) {
+                const isHidden = wrapper.style.display === 'none';
+                wrapper.style.display = isHidden ? 'block' : 'none';
+                e.target.textContent = isHidden ? '收起' : '内容';
+            }
         }
 
         const deleteAllBtn = e.target.closest('.delete-all-btn');
@@ -1194,12 +1260,48 @@ document.body.addEventListener('click', async (e) => {
         const createNewBtn = e.target.closest('.create-new-btn');
         if (createNewBtn) {
             const itemType = createNewBtn.dataset.itemType;
-            if (itemType === 'sites') addSiteModal.open();
-            if (itemType === 'parses') addParseModal.open();
-            if (itemType === 'rules') addFilterModal.open();
+            if (itemType === 'sites') {
+                const apiInput = document.getElementById('new-site-api-modal');
+                const label = document.querySelector('#add-site-modal label[for="save-as-default-toggle-modal"]');
+                if(apiInput && label) {
+                    const apiName = apiInput.value.trim();
+                     if (apiName) {
+                        label.textContent = `将以上内容保存为 ${apiName} 的默认模板`;
+                    } else {
+                        label.textContent = '将以上内容保存为该接口的默认模板';
+                    }
+                }
+                addSiteModal.open();
+
+            } else if (itemType === 'parses') {
+                addParseModal.open();
+            } else if (itemType === 'rules') {
+                addFilterModal.open();
+            }
         }
     });
-    
+
+    /**
+     * @description 为“新增爬虫规则”弹窗添加动态交互
+     */
+    const addSiteModalElement = document.getElementById('add-site-modal');
+    if (addSiteModalElement) {
+        // 使用事件委托，监听弹窗内部的输入事件
+        addSiteModalElement.addEventListener('input', (e) => {
+            if (e.target.id === 'new-site-api-modal') {
+                const apiName = e.target.value.trim();
+                const label = addSiteModalElement.querySelector('label[for="save-as-default-toggle-modal"]');
+                if (label) {
+                    if (apiName) {
+                        label.textContent = `将以上内容保存为 ${apiName} 的默认模板`;
+                    } else {
+                        label.textContent = '将以上内容保存为该接口的默认模板';
+                    }
+                }
+            }
+        });
+    }
+
     loadAndRenderRulesFromUrl();
     updateGridColumns();
 });

@@ -70,21 +70,42 @@
         
         <script id="add-site-modal-template" type="text/x-handlebars-template">
             <div id="create-spider-form-modal" class="details-panel create-panel active" style="max-height:none; opacity:1; padding:0; background:none;">
-                <div class="form-group"><label for="new-site-name-modal">规则名称</label><input id="new-site-name-modal" type="text" placeholder="例如：酷云影视"></div>
-                <div class="form-group"><label for="new-site-key-modal">唯一标识</label><input id="new-site-key-modal" type="text" placeholder="例如：ky_m"></div>
-                <div class="form-group" style="grid-column: 1 / -1;"><label for="new-site-ext-modal">规则链接</label><input id="new-site-ext-modal" type="text" placeholder="http://.../rule.json"></div>
-                <div class="form-group"><label for="new-site-api-modal">爬虫接口</label><input id="new-site-api-modal" type="text" value="csp_XYQHiker"></div>
-                <div class="form-group"><label for="new-site-type-modal">类型</label><select id="new-site-type-modal"><option value="1">1 (csp)</option><option value="0">0 (vod)</option><option value="2">2</option><option value="3" selected>3</option></select></div>
-                <div class="form-group"><label for="new-site-jar-modal">Jar文件</label><input id="new-site-jar-modal" type="text" placeholder="例如：./libs/Panda.jar"></div>
-                <div class="form-group checkbox-group">
-                    <input type="checkbox" id="new-site-searchable-modal" style="width: auto;" checked>
-                    <label>可搜索</label>
-                    <input type="checkbox" id="new-site-filterable-modal" style="width: auto;" checked>
-                    <label>可筛选</label>
-                    <input type="checkbox" id="new-site-quick-modal" style="width: auto;" checked>
-                    <label>快速搜索</label>
-                </div>
+                <div class="details-form-grid">
+                    <div class="form-group"><label for="new-site-name-modal">规则名称</label><input id="new-site-name-modal" type="text" placeholder="例如：酷云影视"></div>
+                    <div class="form-group"><label for="new-site-key-modal">唯一标识</label><input id="new-site-key-modal" type="text" placeholder="例如：ky_m"></div>
+                    
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label for="new-site-ext-modal">规则链接</label>
+                        <div class="input-with-buttons">
+                            <input id="new-site-ext-modal" type="text" placeholder="./some/path/rule.json">
+                            <button type="button" id="toggle-custom-content-btn" class="btn btn-sm secondary-btn">内容</button>
+                        </div>
+                    </div>
+                    
+                    <div id="custom-content-wrapper" style="display: none; grid-column: 1 / -1;">
+                        <div class="form-group">
+                            <label for="new-site-custom-content-modal">自定义规则内容 (留空则使用默认模板)</label>
+                            <textarea id="new-site-custom-content-modal" rows="5"></textarea>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" id="save-as-default-toggle-modal" style="width: auto;">
+                            <label for="save-as-default-toggle-modal">将以上内容保存为该接口的默认模板</label>
+                        </div>
+                    </div>
 
+                    <div class="form-group"><label for="new-site-api-modal">爬虫接口</label><input id="new-site-api-modal" type="text" value="csp_XYQHiker"></div>
+                    <div class="form-group"><label for="new-site-type-modal">类型</label><select id="new-site-type-modal"><option value="1">1 (csp)</option><option value="0">0 (vod)</option><option value="2">2</option><option value="3" selected>3</option></select></div>
+                    <div class="form-group"><label for="new-site-jar-modal">Jar文件</label><input id="new-site-jar-modal" type="text" placeholder="例如：./libs/Panda.jar"></div>
+                    
+                    <div class="form-group checkbox-group">
+                        <input type="checkbox" id="new-site-searchable-modal" style="width: auto;" checked>
+                        <label>可搜索</label>
+                        <input type="checkbox" id="new-site-filterable-modal" style="width: auto;" checked>
+                        <label>可筛选</label>
+                        <input type="checkbox" id="new-site-quick-modal" style="width: auto;" checked>
+                        <label>快速搜索</label>
+                    </div>
+                </div>
             </div>
         </script>
         

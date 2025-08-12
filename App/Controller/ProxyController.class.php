@@ -194,4 +194,67 @@ class ProxyController extends BaseController  {
              }
         }
     }
+
+    /**
+     * 创建规则文件并填充默认内容
+     * 访问URL: index.php/Proxy/createRuleFile (POST请求)
+     */
+    public function createRuleFileAction() {
+        header('Content-Type: application/json');
+
+        $relativePath = $_POST['relativePath'] ?? null;
+        $apiName = $_POST['apiName'] ?? null;
+        $customContent = $_POST['customContent'] ?? null;
+
+        $saveAsDefault = !empty($_POST['saveAsDefault']) && $_POST['saveAsDefault'] !== 'false';
+
+        if (!$relativePath || !$apiName) {
+            $this->ajaxReturn(['success' => false, 'message' => '缺少必要的参数']);
+        }
+
+        $targetPath = $this->baseSaveDir . sanitize_path($relativePath);
+        $targetDir = dirname($targetPath);
+
+        if (file_exists($targetPath)) {
+            // $this->ajaxReturn(['success' => false, 'message' => '文件已存在，无法创建']);
+        }
+
+        if (!is_dir($targetDir)) {
+            if (!mkdir($targetDir, 0755, true)) {
+                $this->ajaxReturn(['success' => false, 'message' => '创建目录失败，请检查 /box 目录权限']);
+            }
+        }
+
+        $finalContent = '';
+        if (!empty($customContent)) {
+            $finalContent = $customContent;
+        } else {
+            $templatePath = ROOT_PATH . '/Json/' . $apiName . '.json';
+            if (file_exists($templatePath)) {
+                $finalContent = file_get_contents($templatePath);
+            } else {
+                $this->ajaxReturn([
+                    'success' => false,
+                    'message' => "默认模板 Json/{$apiName}.json 未找到。请点击“内容”按钮设置默认内容，或在服务器Json目录下手动创建该文件。"
+                ]);
+                return;
+            }
+        }
+
+        if (file_put_contents($targetPath, $finalContent) === false) {
+            $this->ajaxReturn(['success' => false, 'message' => '规则文件写入失败']);
+            return;
+        }
+
+        if ($saveAsDefault && !empty($customContent)) {
+            $defaultTemplatePath = ROOT_PATH . '/Json/' . $apiName . '.json';
+            $defaultTemplateDir = dirname($defaultTemplatePath);
+            if (!is_dir($defaultTemplateDir)) {
+                mkdir($defaultTemplateDir, 0755, true);
+            }
+            file_put_contents($defaultTemplatePath, $customContent);
+        }
+
+        $this->ajaxReturn(['success' => true, 'message' => '规则文件创建成功']);
+    }
 }
