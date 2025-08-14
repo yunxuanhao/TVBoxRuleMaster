@@ -34,7 +34,7 @@
 
 ### 使用方法
 
-1.  前往项目的 **[Releases](https://github.com/xMydev/TVboxEditor/releases)** 页面下载最新的 `TVboxEditorOffline_x.x.x_x64.7z` 文件。
+1.  前往项目的 **https://github.com/xMydev/TVboxEidtor/releases** 页面下载最新的 `TVboxEditorOffline_x.x.x_x64.7z` 文件。
 2.  解压到您希望的任意位置。
 3.  双击运行 `start.bat` 文件。
 4.  一个命令行窗口将会打开，提示服务器已在 `http://127.0.0.1:xxxx` 上运行。
