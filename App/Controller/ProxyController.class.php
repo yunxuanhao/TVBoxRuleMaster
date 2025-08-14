@@ -12,7 +12,7 @@ class ProxyController extends BaseController  {
 
     private $baseSaveDir = './box/';
     private $cacheDir = './cache/';
-    private $cacheTtl = 3600;
+    private $cacheTtl = 5;
 
     /**
      * 构造函数，确保目录存在
@@ -20,13 +20,30 @@ class ProxyController extends BaseController  {
     public function __construct(){
         parent::__construct();
         if (!is_dir($this->baseSaveDir)) mkdir($this->baseSaveDir, 0755, true);
-        if (!is_dir($this->cacheDir)) mkdir($this->cacheDir, 0755, true);
+        
+        if (!is_dir($this->cacheDir)) {
+            mkdir($this->cacheDir, 0755, true);
+        } else {
+            $timestampFile = $this->cacheDir . md5('timestamp') . '.cache';
+            if (!file_exists($timestampFile)) {
+                touch($timestampFile);
+            } else {
+                if (time() - filemtime($timestampFile) >= $this->cacheTtl) {
+                    if (is_dir($this->cacheDir)) {
+                        deleteDirectory($this->cacheDir);
+                    }
+                    mkdir($this->cacheDir, 0755, true);
+                    touch($timestampFile);
+                }
+            }
+        }
     }
+
+
     
     /**
      * 代理远程URL加载 (默认Action)
      * 访问URL: index.php/Proxy/load?target_url=...
-     * (已优化本地文件加载逻辑，可自动计算spider的MD5)
      */
     public function loadAction() {
         if (!isset($_GET['target_url'])) {
@@ -216,7 +233,7 @@ class ProxyController extends BaseController  {
         $targetDir = dirname($targetPath);
 
         if (file_exists($targetPath)) {
-            // $this->ajaxReturn(['success' => false, 'message' => '文件已存在，无法创建']);
+            $this->ajaxReturn(['success' => false, 'message' => '文件已存在，无法创建']);
         }
 
         if (!is_dir($targetDir)) {
@@ -256,5 +273,166 @@ class ProxyController extends BaseController  {
         }
 
         $this->ajaxReturn(['success' => true, 'message' => '规则文件创建成功']);
+    }
+
+    /**
+     * 代理推送请求到TVBox，并智能判断API版本
+     * 访问URL: index.php/Proxy/pushToTvbox (POST请求)
+     */
+    public function pushToTvboxAction() {
+        header('Content-Type: application/json');
+
+        $tvboxUrl = $_POST['tvboxUrl'] ?? null;
+        $action = $_POST['action'] ?? null;
+        $payload = $_POST['payload'] ?? null;
+
+        if (!$tvboxUrl || !$action) {
+            $this->ajaxReturn(['success' => false, 'message' => '缺少TvBox地址或动作参数']);
+        }
+        
+        if ($action === 'test_connection') {
+            $testUrl = rtrim($tvboxUrl, '/');
+            $result = httpCurl(['url' => $testUrl, 'method' => 'HEAD']);
+            if (isset($result['error'])) {
+                 $this->ajaxReturn(['success' => false, 'message' => '连接失败: ' . $result['error']]);
+            } elseif (isset($result['info']) && $result['info']['http_code'] >= 200 && $result['info']['http_code'] < 400) {
+                 $this->ajaxReturn(['success' => true, 'message' => '连接成功！']);
+            } else {
+                 $this->ajaxReturn(['success' => false, 'message' => '连接失败，状态码: ' . ($result['info']['http_code'] ?? '未知')]);
+            }
+            return;
+        }
+
+        if ($payload === null) {
+            $this->ajaxReturn(['success' => false, 'message' => '缺少必要的推送参数 (payload)']);
+        }
+
+        $postData = [];
+        $finalUrl = rtrim($tvboxUrl, '/') . '/action';
+
+        $scriptPath1 = rtrim($tvboxUrl, '/') . '/script.js';
+        $scriptPath2 = rtrim($tvboxUrl, '/') . '/web/js/script.js';
+        $scriptPath3 = rtrim($tvboxUrl, '/') . '/js/script.js';
+        $version = 'unknown';
+
+        $result1 = httpCurl(['url' => $scriptPath1, 'method' => 'HEAD']);
+        $result2 = httpCurl(['url' => $scriptPath2, 'method' => 'HEAD']);
+        if ((!isset($result1['error']) && $result1['info']['http_code'] == 200) || 
+            (!isset($result2['error']) && $result2['info']['http_code'] == 200)) {
+            $version = 'takagen99';
+        } else {
+            $result3 = httpCurl(['url' => $scriptPath3, 'method' => 'HEAD']);
+            if (!isset($result3['error']) && $result3['info']['http_code'] == 200) {
+                $version = 'easybox';
+            }
+        }
+
+        if ($action === 'push_config') {
+            if ($version === 'takagen99') {
+                $postData = ['do' => 'api', 'url' => $payload];
+            } elseif ($version === 'easybox') {
+                $postData = ['do' => 'setting', 'text' => $payload];
+            } else {
+                $this->ajaxReturn(['success' => false, 'message' => '未知或无法访问的TVBox版本，无法推送配置']);
+                return;
+            }
+        } elseif ($action === 'search') {
+            $postData = ['do' => 'search', 'word' => $payload];
+        } else {
+            $this->ajaxReturn(['success' => false, 'message' => '未知的推送动作']);
+            return;
+        }
+
+        $result = httpCurl([
+            'url' => $finalUrl,
+            'method' => 'POST',
+            'data' => http_build_query($postData)
+        ]);
+
+        if (isset($result['error'])) {
+            $this->ajaxReturn(['success' => false, 'message' => '推送到TVBox失败: ' . $result['error']]);
+        } else {
+            $this->ajaxReturn(['success' => true, 'message' => '命令已发送', 'tvbox_response' => http_build_query($postData)]);
+        }
+    }
+
+    /**
+     * 获取API列表，支持分页和搜索
+     * 访问URL: index.php/Proxy/getApiList?page=1&search=...
+     */
+    public function getApiListAction() {
+        $apiListFile = ROOT_PATH . '/Json/api_list.json';
+        $apis = [];
+        if (file_exists($apiListFile)) {
+            $apis = json_decode(file_get_contents($apiListFile), true);
+        }
+
+        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        $search = isset($_GET['search']) ? trim($_GET['search']) : '';
+        $perPage = 50; // 每页显示20个
+
+        // 搜索过滤
+        if (!empty($search)) {
+            $apis = array_filter($apis, function($api) use ($search) {
+                return stripos($api, $search) !== false;
+            });
+        }
+        
+        $total = count($apis);
+        $totalPages = ceil($total / $perPage);
+        
+        // 分页
+        $offset = ($page - 1) * $perPage;
+        $paginatedApis = array_slice($apis, $offset, $perPage);
+
+        $this->ajaxReturn([
+            'success' => true,
+            'data' => array_values($paginatedApis), // 重新索引数组
+            'page' => $page,
+            'totalPages' => $totalPages
+        ]);
+    }
+
+    /**
+     * 更新存储在服务器上的API列表
+     * 访问URL: index.php/Proxy/updateApiList (POST请求)
+     */
+    public function updateApiListAction() {
+        header('Content-Type: application/json');
+
+        $input = file_get_contents('php://input');
+        $newApis = json_decode($input, true);
+
+        if (!is_array($newApis)) {
+            $this->ajaxReturn(['success' => false, 'message' => '无效的数据格式']);
+            return;
+        }
+
+        $apiListFile = ROOT_PATH . '/Json/api_list.json';
+        $existingApis = [];
+
+        if (file_exists($apiListFile)) {
+            $existingApis = json_decode(file_get_contents($apiListFile), true);
+            if (!is_array($existingApis)) {
+                $existingApis = [];
+            }
+        }
+
+        // 合并去重
+        $mergedApis = array_unique(array_merge($existingApis, $newApis));
+        
+        // 确保 /Json 目录存在
+        $jsonDir = dirname($apiListFile);
+        if (!is_dir($jsonDir)) {
+            mkdir($jsonDir, 0755, true);
+        }
+
+        $result = file_put_contents($apiListFile, json_encode(array_values($mergedApis), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+        if ($result !== false) {
+            $this->ajaxReturn(['success' => true, 'message' => 'API列表已更新']);
+        } else {
+            $this->ajaxReturn(['success' => false, 'message' => 'API列表写入失败']);
+        }
     }
 }

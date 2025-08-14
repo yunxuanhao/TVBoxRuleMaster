@@ -18,23 +18,23 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentConfigBaseDir = '';
     const defaultJsonUrl = 'https://raw.githubusercontent.com/liu673cn/box/refs/heads/main/m.json';
 
-    /**
-     * @description 预编译所有Handlebars模板
+/**
+     * @description 动态编译所有Handlebars模板
      */
-    const templates = {
-        basicTab: Handlebars.compile(document.getElementById('basic-tab-template')?.innerHTML || ''),
-        simpleItem: Handlebars.compile(document.getElementById('simple-item-template')?.innerHTML || ''),
-        siteItem: Handlebars.compile(document.getElementById('site-item-template')?.innerHTML || ''),
-        filterItem: Handlebars.compile(document.getElementById('filter-item-template')?.innerHTML || ''),
-        tabContent: Handlebars.compile(document.getElementById('tab-content-template')?.innerHTML || ''),
-        detailsModalBody: Handlebars.compile(document.getElementById('details-modal-body-template')?.innerHTML || ''),
-        fileBrowserBody: Handlebars.compile(document.getElementById('file-browser-body-template')?.innerHTML || ''),
-        addSiteModal: Handlebars.compile(document.getElementById('add-site-modal-template')?.innerHTML || ''),
-        addParseModal: Handlebars.compile(document.getElementById('add-parse-modal-template')?.innerHTML || ''),
-        addFilterModal: Handlebars.compile(document.getElementById('add-filter-modal-template')?.innerHTML || ''),
-        downloadModal: Handlebars.compile(document.getElementById('download-modal-template')?.innerHTML || ''),
-    };
+    const templateIds = [
+        'basic-tab-template', 'simple-item-template', 'site-item-template',
+        'filter-item-template', 'tab-content-template', 'details-modal-body-template',
+        'file-browser-body-template', 'add-site-modal-template', 'add-parse-modal-template',
+        'add-filter-modal-template', 'download-modal-template', 'ai-helper-modal-template',
+        'push-modal-template'
+    ];
     
+    const templates = templateIds.reduce((acc, id) => {
+        const key = id.replace(/-template$/, '').replace(/-(\w)/g, (_, c) => c.toUpperCase());
+        acc[key] = Handlebars.compile(document.getElementById(id)?.innerHTML || '');
+        return acc;
+    }, {});
+
     /**
      * @description 注册Handlebars助手函数
      */
@@ -50,61 +50,75 @@ document.addEventListener('DOMContentLoaded', () => {
     /**
      * @description Modal弹窗实例化
      */
-    const detailsModal = new Modal({
-        id: 'details-modal',
-        title: '编辑详情',
-        footer: '<button id="modal-save-btn" class="btn primary-btn">确认</button>'
-    });
-    
-    const sourceViewModal = new Modal({
-        id: 'source-view-modal',
-        title: '查看源码',
-        content: '<pre><code id="sourceCodeView" class="language-json"></code></pre>'
-    });
+    const modalConfigs = [
+        {
+            name: 'detailsModal',
+            id: 'details-modal',
+            title: '编辑详情',
+            footer: '<button id="modal-save-btn" class="btn primary-btn">确认</button>'
+        },{
+            name: 'sourceViewModal',
+            id: 'source-view-modal',
+            title: '查看源码',
+            content: '<pre><code id="sourceCodeView" class="language-json"></code></pre>'
+        },{
+            name: 'downloadModal',
+            id: 'download-modal',
+            title: '下载配置及资源',
+            content: templates.downloadModal(),
+            footer: '<button id="start-download-btn" class="btn primary-btn">开始下载</button>'
+        },{
+            name: 'fileBrowserModal',
+            id: 'file-browser-modal',
+            title: '选择服务器上的配置文件',
+            footer: `
+                <button id="select-local-file-btn" class="btn secondary-btn">选择本地文件</button>
+                <button id="open-selected-file-btn" class="btn primary-btn">打开选中文件</button>
+            `
+        },{
+            name: 'addSiteModal',
+            id: 'add-site-modal',
+            title: '新增爬虫规则',
+            content: templates.addSiteModal(),
+            footer: '<button id="add-spider-btn-modal" class="btn primary-btn">添加</button>'
+        },{
+            name: 'addParseModal',
+            id: 'add-parse-modal',
+            title: '新增解析接口',
+            content: templates.addParseModal(),
+            footer: '<button id="add-parse-btn-modal" class="btn primary-btn">添加</button>'
+        },{
+            name: 'addFilterModal',
+            id: 'add-filter-modal',
+            title: '新增过滤规则',
+            content: templates.addFilterModal(),
+            footer: '<button id="add-filter-btn-modal" class="btn primary-btn">添加</button>'
+        },{
+            name: 'historyModal',
+            id: 'history-modal',
+            title: '加载历史记录',
+            content: '<div><ul id="historyList"></ul></div>',
+            footer: '<button id="clearHistoryBtn" class="btn danger-btn">清空历史记录</button>'
+        },{
+            name: 'aiHelperModal',
+            id: 'ai-helper-modal',
+            title: 'AI 帮写小助手',
+            content: templates.aiHelperModal(),
+            footer: '<button class="btn primary-btn" data-close-modal>关闭</button>'
+        },{
+            name: 'pushModal',
+            id: 'push-modal',
+            title: '推送至TVBox',
+            content: templates.pushModal(),
+            footer: '<button class="btn primary-btn" data-close-modal>关闭</button>'
+        }
+    ];
 
-    const downloadModal = new Modal({
-        id: 'download-modal',
-        title: '下载配置及资源',
-        content: templates.downloadModal(),
-        footer: '<button id="start-download-btn" class="btn primary-btn">开始下载</button>'
-    });
-
-    const fileBrowserModal = new Modal({
-        id: 'file-browser-modal',
-        title: '选择服务器上的配置文件',
-        footer: `
-            <button id="select-local-file-btn" class="btn secondary-btn">选择本地文件</button>
-            <button id="open-selected-file-btn" class="btn primary-btn">打开选中文件</button>`
-    });
-
-    const addSiteModal = new Modal({
-        id: 'add-site-modal',
-        title: '新增爬虫规则',
-        content: templates.addSiteModal(),
-        footer: '<button id="add-spider-btn-modal" class="btn primary-btn">添加</button>'
-    });
-
-    const addParseModal = new Modal({
-        id: 'add-parse-modal',
-        title: '新增解析接口',
-        content: templates.addParseModal(),
-        footer: '<button id="add-parse-btn-modal" class="btn primary-btn">添加</button>'
-    });
-
-    const addFilterModal = new Modal({
-        id: 'add-filter-modal',
-        title: '新增过滤规则',
-        content: templates.addFilterModal(),
-        footer: '<button id="add-filter-btn-modal" class="btn primary-btn">添加</button>'
-    });
-    
-    const historyModal = new Modal({
-        id: 'history-modal',
-        title: '加载历史记录',
-        content: '<div><ul id="historyList"></ul></div>',
-        footer: '<button id="clearHistoryBtn" class="btn danger-btn">清空历史记录</button>'
-    });
-
+    const modals = modalConfigs.reduce((acc, config) => {
+        const { name, ...options } = config;
+        acc[name] = new Modal(options);
+        return acc;
+    }, {});
 
     /**
      * @description 页面主要元素的引用
@@ -227,7 +241,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // --- 核心改动：解析并存储当前配置的基础目录 ---
         if (url.includes('/box/')) {
             const pathAfterBox = url.split('/box/')[1];
             const lastSlashIndex = pathAfterBox.lastIndexOf('/');
@@ -297,6 +310,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 .replace(/,\s*([}\]])/g, '$1');
             currentRulesData = JSON.parse(cleanedContent);
             renderAllTabs(currentRulesData);
+
+            if (currentRulesData.sites && Array.isArray(currentRulesData.sites)) {
+                const apisToUpdate = [...new Set(
+                    currentRulesData.sites
+                        .map(site => site.api)
+                        .filter(api => typeof api === 'string' && (api.startsWith('csp_') || api.endsWith('.js') || api.endsWith('.py')))
+                )];
+
+                if (apisToUpdate.length > 0) {
+                    fetch('index.php/Proxy/updateApiList', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(apisToUpdate)
+                    });
+                }
+            }
 
             setTimeout(() => {
                 const initialActiveTab = document.querySelector('.tabs .tab-btn.active');
@@ -514,8 +543,8 @@ document.addEventListener('DOMContentLoaded', () => {
      * @description 打开文件浏览器弹窗
      */
     async function openFileBrowser() {
-        fileBrowserModal.open();
-        const body = fileBrowserModal.getBodyElement();
+        modals.fileBrowserModal.open();
+        const body = modals.fileBrowserModal.getBodyElement();
         body.innerHTML = '<div class="loading-spinner"></div>';
         try {
             const response = await fetch('index.php/Proxy/listFiles');
@@ -535,7 +564,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * @description 打开选中的服务器文件
      */
     function openSelectedServerFile() {
-        const selectedRadio = fileBrowserModal.getBodyElement().querySelector('input[name="server-file-radio"]:checked');
+        const selectedRadio = modals.fileBrowserModal.getBodyElement().querySelector('input[name="server-file-radio"]:checked');
         if (!selectedRadio) {
             showToast('请先选择一个JSON文件！', 'error');
             return;
@@ -544,7 +573,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentPath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/'));
         const newUrl = `${window.location.origin}${currentPath}/box/${filePath}`;
         jsonUrlInput.value = newUrl;
-        fileBrowserModal.close();
+        modals.fileBrowserModal.close();
         loadAndRenderRulesFromUrl();
     }
     
@@ -570,7 +599,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         currentEditInfo = { itemData, itemType, index, config };
-        detailsModal.setTitle(`编辑 - ${itemData.name || '项目'}`);
+        modals.detailsModal.setTitle(`编辑 - ${itemData.name || '项目'}`);
         
         const fields = config.fieldOrder.map(key => {
             if (!config.translations[key]) return null;
@@ -593,8 +622,8 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }).filter(Boolean);
         
-        detailsModal.setBody(templates.detailsModalBody({ fields: fields }));
-        detailsModal.open();
+        modals.detailsModal.setBody(templates.detailsModalBody({ fields: fields }));
+        modals.detailsModal.open();
     }
 
     /**
@@ -628,7 +657,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         currentRulesData[itemType][index] = updatedData;
         renderAllTabs(currentRulesData);
-        detailsModal.close();
+        modals.detailsModal.close();
         showToast('修改已确认', 'success');
     }
 
@@ -714,17 +743,30 @@ document.addEventListener('DOMContentLoaded', () => {
             jar: document.getElementById('new-site-jar-modal').value.trim(),
         };
         
-        if (!newSite.name || !newSite.key) {
-            showToast('规则名称和唯一标识不能为空！', 'error');
+        if (!newSite.name || !newSite.key || !newSite.ext) {
+            showToast('规则名称、唯一标识和规则链接不能为空！', 'error');
             return;
+        }
+
+        if (currentRulesData.sites && currentRulesData.sites.length > 0) {
+            const isDuplicate = currentRulesData.sites.some(site => 
+                site.name.toLowerCase() === newSite.name.toLowerCase() ||
+                site.key.toLowerCase() === newSite.key.toLowerCase() ||
+                site.ext === newSite.ext
+            );
+
+            if (isDuplicate) {
+                scrollToTop();
+                showToast('规则名称、唯一标识或链接已存在，请修改后重试。', 'error');
+                return;
+            }
         }
 
         if (newSite.ext.startsWith('./') && newSite.ext.endsWith('.json')) {
             const customContent = document.getElementById('new-site-custom-content-modal').value;
             const saveAsDefault = document.getElementById('save-as-default-toggle-modal').checked;
             
-            // --- 核心改动：拼接基础目录和相对路径 ---
-            const pathFromInput = newSite.ext.substring(2); // 去掉 './'
+            const pathFromInput = newSite.ext.substring(2);
             const finalRelativePath = currentConfigBaseDir + pathFromInput;
 
             const formData = new FormData();
@@ -756,11 +798,11 @@ document.addEventListener('DOMContentLoaded', () => {
         currentRulesData.sites.unshift(newSite);
         renderSitesTab(currentRulesData.sites);
         showToast('新爬虫规则已成功添加！', 'success');
-        addSiteModal.close();
+        modals.addSiteModal.close();
     }
 
     /**
-     * @description 添加新的解析接口 (适配弹窗)
+     * @description 添加新的解析接口
      */
     function addParse() {
         const newParse = {
@@ -788,11 +830,11 @@ document.addEventListener('DOMContentLoaded', () => {
         currentRulesData.parses.unshift(newParse);
         renderParsesTab(currentRulesData.parses, currentRulesData.flags);
         showToast('新解析接口已成功添加！', 'success');
-        addParseModal.close();
+        modals.addParseModal.close();
     }
 
     /**
-     * @description 添加新的过滤规则 (适配弹窗)
+     * @description 添加新的过滤规则
      */
     function addFilterRule() {
         const newRule = {
@@ -816,12 +858,12 @@ document.addEventListener('DOMContentLoaded', () => {
         currentRulesData.rules.unshift(newRule);
         renderFiltersTab(currentRulesData.rules, currentRulesData.ads);
         showToast('新过滤规则已添加！', 'success');
-        addFilterModal.close();
+        modals.addFilterModal.close();
     }
 
 
     /**
-     * @description 启动下载流程 (已优化下载状态提示)
+     * @description 启动下载流程 
      */
     async function startDownloadProcess() {
         const targetDir = document.getElementById('download-dir-input').value.trim();
@@ -842,7 +884,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             showToast('开始下载流程...', 'info');
-            downloadModal.close();
+            modals.downloadModal.close();
 
             document.getElementById('basic').classList.add('show-status');
             document.getElementById('sites').classList.add('show-status');
@@ -1046,7 +1088,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 let targetFile = null;
                 const extPath = parseAssetPath(itemData.ext);
-                if (extPath && /\.(json|js|py)$/i.test(extPath)) {
+                if (extPath && /\.(json|js|py|txt)$/i.test(extPath)) {
                     targetFile = extPath;
                 }
                 const jarPath = parseAssetPath(itemData.jar);
@@ -1161,9 +1203,11 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('请先加载一个配置文件！', 'error');
             return;
         }
-        downloadModal.open();
+        modals.downloadModal.open();
     });
-
+    document.getElementById('aiHelperBtn').addEventListener('click', () => {
+        modals.aiHelperModal.open();
+    });
     document.getElementById('historyBtn').addEventListener('click', () => {
         const history = getUrlHistory();
         const listElement = document.getElementById('historyList');
@@ -1182,19 +1226,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 listElement.appendChild(li);
             });
         }
-        historyModal.open();
+        modals.historyModal.open();
     });
 
-    historyModal.getBodyElement().addEventListener('click', (e) => {
+    modals.historyModal.getBodyElement().addEventListener('click', (e) => {
         if (e.target && e.target.classList.contains('history-item')) {
             const url = e.target.dataset.url;
             jsonUrlInput.value = url;
-            historyModal.close();
+            modals.historyModal.close();
             loadAndRenderRulesFromUrl();
         }
     });
 
-    historyModal.getFooterElement().addEventListener('click', (e) => {
+    modals.historyModal.getFooterElement().addEventListener('click', (e) => {
         if (e.target && e.target.id === 'clearHistoryBtn') {
             localStorage.removeItem('urlHistory');
             document.getElementById('historyList').innerHTML = '<li>历史记录已清空。</li>';
@@ -1222,7 +1266,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const codeElement = document.getElementById('sourceCodeView');
             if (codeElement) {
                 codeElement.textContent = rawJsonContent;
-                sourceViewModal.open();
+                modals.sourceViewModal.open();
             }
         } else {
             showToast('请先加载一个规则文件以查看源码。', 'warning');
@@ -1238,12 +1282,193 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.id === 'add-filter-btn-modal') addFilterRule();
         
         if (e.target.id === 'modal-save-btn') saveModalChanges();
+        if (e.target.classList.contains('select-api-btn-edit')) {
+            const apiInput = e.target.closest('.input-with-buttons').querySelector('.details-input');
+            if (apiInput) {
+                openApiSelectorModal(apiInput);
+            }
+        }
         if (e.target.id === 'start-download-btn') startDownloadProcess();
         if (e.target.id === 'select-local-file-btn') {
-            fileBrowserModal.close();
+            modals.fileBrowserModal.close();
             localFileInput.click();
         }
         if (e.target.id === 'open-selected-file-btn') openSelectedServerFile();
+
+        /**
+         * @description 处理推送到TVBox的请求
+         * @param {string} action - 要执行的动作 (test_connection, push_config, search)
+         * @param {string} payload - 附加数据 (URL或关键字)
+         * @param {string} tvboxIp - TVBox的接口地址
+         */
+        const handlePush = async (action, payload, tvboxIp) => {
+            const formData = new FormData();
+            formData.append('tvboxUrl', tvboxIp);
+            formData.append('action', action);
+            formData.append('payload', payload);
+            
+            const toastMessage = action === 'test_connection' ? '正在测试连接...' : '正在发送命令...';
+            showToast(toastMessage, 'info');
+
+            try {
+                const response = await fetch('index.php/Proxy/pushToTvbox', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast(result.message || '命令已成功发送！', 'success');
+                    localStorage.setItem('tvbox_push_ip', tvboxIp);
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                showToast(`发送失败: ${error.message}`, 'error');
+            }
+        };
+        
+        if (e.target.id === 'push-test-btn') {
+            const tvboxIp = document.getElementById('push-tvbox-ip').value.trim();
+            if (!tvboxIp) {
+                showToast('请输入TvBox接口地址！', 'warning');
+                return;
+            }
+            await handlePush('test_connection', '', tvboxIp);
+        }
+        if (e.target.id === 'push-confirm-btn') {
+            const tvboxIp = document.getElementById('push-tvbox-ip').value.trim();
+            const configUrl = document.getElementById('push-config-url').value.trim();
+            if (!tvboxIp || !configUrl) return;
+            await handlePush('push_config', configUrl, tvboxIp);
+        }
+        if (e.target.id === 'push-search-btn') {
+            const tvboxIp = document.getElementById('push-tvbox-ip').value.trim();
+            const keyword = document.getElementById('push-search-keyword').value.trim();
+            if (!tvboxIp || !keyword) return;
+            await handlePush('search', keyword, tvboxIp);
+        }
+
+        
+        if (e.target.id === 'filter-sites-btn') {
+            const sites = currentRulesData.sites || [];
+            if (sites.length === 0) {
+                showToast('当前没有可供筛选的爬虫规则。', 'info');
+                return;
+            }
+
+            const uniqueApis = [...new Set(sites.map(site => site.api).filter(Boolean))];
+            if (uniqueApis.length === 0) {
+                showToast('当前规则中没有可供筛选的爬虫接口(api)。', 'info');
+                return;
+            }
+
+            let standardApis = [];
+            let otherApisExist = false;
+            
+            uniqueApis.forEach(api => {
+                if (api.startsWith('csp_') || api.endsWith('.js') || api.endsWith('.py')) {
+                    standardApis.push(api);
+                } else {
+                    otherApisExist = true;
+                }
+            });
+            
+            let dialogContentHtml = `
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <input type="text" id="api-search-input" placeholder="输入接口名进行搜索..." style="padding: 6px 10px; font-size: 14px;">
+                </div>
+                <div class="api-filter-grid">`;
+            
+            apiButtonsHtml = '';
+            apiButtonsHtml += `<button class="btn secondary-btn" data-api-filter="*">显示全部</button>`;
+            standardApis.forEach(api => {
+                apiButtonsHtml += `<button class="btn secondary-btn" data-api-filter="${api}">${api}</button>`;
+            });
+
+            if (otherApisExist) {
+                apiButtonsHtml += `<button class="btn secondary-btn" data-api-filter="__others__">其他接口</button>`;
+            }
+            dialogContentHtml += apiButtonsHtml + '</div>';
+            
+            try {
+                showDialog({
+                    type: 'alert',
+                    title: '按爬虫接口筛选',
+                    message: dialogContentHtml,
+                    okText: '关闭'
+                });
+
+                setTimeout(() => {
+                    const grid = document.querySelector('.api-filter-grid');
+                    if (!grid) return;
+                    const buttons = grid.querySelectorAll('button');
+                    const searchInput = document.getElementById('api-search-input');
+
+                    if (searchInput) {
+                        searchInput.addEventListener('input', () => {
+                            const searchTerm = searchInput.value.toLowerCase();
+                            buttons.forEach(button => {
+                                const apiName = button.dataset.apiFilter;
+                                if (apiName && apiName.toLowerCase().includes(searchTerm)) {
+                                    button.style.display = '';
+                                } else {
+                                    button.style.display = 'none';
+                                }
+                            });
+                        });
+                    }
+                    
+                    buttons.forEach(button => {
+                        if (button.scrollWidth > button.clientWidth) {
+                            button.classList.add('has-marquee');
+                            const text = button.textContent;
+                            button.innerHTML = `<div class="marquee-wrapper"><div class="marquee-text">${text}</div></div>`;
+                        }
+                    });
+                }, 0);
+                
+                document.body.querySelector('.dialog-overlay').addEventListener('click', (event) => {
+                    const filterBtn = event.target.closest('[data-api-filter]');
+                    if (filterBtn) {
+                        const filterValue = filterBtn.dataset.apiFilter;
+                        const allSiteItems = document.querySelectorAll('#sites .rule-item-container');
+                        
+                        allSiteItems.forEach(item => {
+                            const siteData = currentRulesData.sites[parseInt(item.dataset.index, 10)];
+                            if (!siteData) return;
+
+                            let isMatch = false;
+                            if (filterValue === '*') {
+                                isMatch = true;
+                                filterToastMessage = '已显示全部规则';
+                            } else if (filterValue === '__others__') {
+                                isMatch = !(siteData.api.startsWith('csp_') || siteData.api.endsWith('.js') || siteData.api.endsWith('.py'));
+                                filterToastMessage = '已筛选：其他接口';
+                            } else {
+                                isMatch = siteData.api === filterValue;
+                                filterToastMessage = `已筛选：${filterValue}`;
+                            }
+                            if (isMatch) {
+                                item.style.display = '';
+                            } else {
+                                item.style.display = 'none';
+                            }
+                        });
+
+                        if(filterToastMessage) {
+                            showToast(filterToastMessage, 'success');
+                        }
+
+                        const closeBtn = document.querySelector('.dialog-overlay .ok-btn');
+                        if (closeBtn) closeBtn.click();
+                    }
+                });
+
+            } catch (err) {
+            }
+            return;
+        }
 
         const dirHeader = e.target.closest('.file-list-item.is-dir');
         if (dirHeader) {
@@ -1333,14 +1558,28 @@ document.addEventListener('DOMContentLoaded', () => {
                         label.textContent = '将以上内容保存为该接口的默认模板';
                     }
                 }
-                addSiteModal.open();
+                modals.addSiteModal.open();
 
             } else if (itemType === 'parses') {
-                addParseModal.open();
+                modals.addParseModal.open();
             } else if (itemType === 'rules') {
-                addFilterModal.open();
+                modals.addFilterModal.open();
             }
         }
+    });
+
+    /**
+     * @description 推送按钮绑定
+     */
+
+    document.getElementById('pushBtn').addEventListener('click', () => {
+        const configUrlInput = document.getElementById('push-config-url');
+        const tvboxIpInput = document.getElementById('push-tvbox-ip');
+        
+        configUrlInput.value = jsonUrlInput.value;
+        tvboxIpInput.value = localStorage.getItem('tvbox_push_ip') || '';
+
+        modals.pushModal.open();
     });
 
     /**
@@ -1348,21 +1587,147 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     const addSiteModalElement = document.getElementById('add-site-modal');
     if (addSiteModalElement) {
-        // 使用事件委托，监听弹窗内部的输入事件
-        addSiteModalElement.addEventListener('input', (e) => {
-            if (e.target.id === 'new-site-api-modal') {
-                const apiName = e.target.value.trim();
-                const label = addSiteModalElement.querySelector('label[for="save-as-default-toggle-modal"]');
-                if (label) {
-                    if (apiName) {
-                        label.textContent = `将以上内容保存为 ${apiName} 的默认模板`;
-                    } else {
-                        label.textContent = '将以上内容保存为该接口的默认模板';
-                    }
+        const nameInput = addSiteModalElement.querySelector('#new-site-name-modal');
+        const apiInput = addSiteModalElement.querySelector('#new-site-api-modal');
+        const keyInput = addSiteModalElement.querySelector('#new-site-key-modal');
+        const label = addSiteModalElement.querySelector('label[for="save-as-default-toggle-modal"]');
+        
+        const updateDynamicFields = () => {
+            const name = nameInput.value.trim();
+            const api = apiInput.value.trim();
+
+            if (name || api) {
+                const timestamp = Date.now();
+                const uniqueString = `${timestamp}${name}${api}`;
+                keyInput.value = md5(uniqueString, { pretty: true });
+            } else {
+                keyInput.value = '';
+            }
+
+            if (label) {
+                if (api) {
+                    label.textContent = `将以上内容保存为 ${api} 的默认模板`;
+                } else {
+                    label.textContent = '将以上内容保存为该接口的默认模板';
                 }
+            }
+        };
+        
+        addSiteModalElement.addEventListener('input', (e) => {
+            if (e.target === nameInput || e.target === apiInput) {
+                updateDynamicFields();
+            }
+        });
+
+        const originalOpen = modals.addSiteModal.open.bind(modals.addSiteModal);
+        modals.addSiteModal.open = () => {
+            originalOpen();
+            if (!keyInput.value.trim()) {
+                 updateDynamicFields();
+            }
+        };
+    }
+
+    /**
+     * @description 打开API选择器弹窗，并处理内部所有事件
+     */
+    function openApiSelectorModal(targetInput) {
+        let currentPage = 1;
+        let totalPages = 1;
+        let isLoading = false;
+        let currentSearch = '';
+
+        const dialogContentHtml = `
+            <div class="form-group" style="margin-bottom: 10px;">
+                <input type="text" id="api-search-input" placeholder="输入接口名进行搜索..." style="padding: 6px 10px; font-size: 14px;">
+            </div>
+            <div class="api-filter-grid" id="api-selector-list" style="max-height: 45vh;"></div>
+        `;
+
+        showDialog({
+            type: 'alert',
+            title: '选择爬虫接口',
+            message: dialogContentHtml,
+            okText: '关闭'
+        }).catch(() => {});
+
+        const dialogOverlay = document.body.querySelector('.dialog-overlay');
+        const listContainer = document.getElementById('api-selector-list');
+        const searchInput = document.getElementById('api-search-input');
+        
+        
+        const fetchApiList = async (page, search = '') => {
+            if (isLoading || page > totalPages) return;
+            isLoading = true;
+            if (page === 1) listContainer.innerHTML = '<div class="loading-spinner"></div>';
+
+            try {
+                const response = await fetch(`index.php/Proxy/getApiList?page=${page}&search=${encodeURIComponent(search)}`);
+                const result = await response.json();
+                if (result.success) {
+                    if (page === 1) listContainer.innerHTML = '';
+                    totalPages = result.totalPages;
+                    result.data.forEach(api => {
+                        const button = document.createElement('button');
+                        button.className = 'btn secondary-btn';
+                        button.dataset.apiName = api;
+                        button.textContent = api;
+                        listContainer.appendChild(button);
+                    });
+                    currentPage++;
+                }
+            } catch (e) {
+                listContainer.innerHTML = '加载列表失败。';
+            } finally {
+                isLoading = false;
+            }
+        };
+
+        listContainer.addEventListener('scroll', () => {
+            if (listContainer.scrollTop + listContainer.clientHeight >= listContainer.scrollHeight - 10) {
+                fetchApiList(currentPage, currentSearch);
+            }
+        });
+        
+        let searchTimeout;
+        searchInput.addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                currentPage = 1;
+                totalPages = 1;
+                currentSearch = searchInput.value;
+                listContainer.scrollTop = 0;
+                fetchApiList(currentPage, currentSearch);
+            }, 300);
+        });
+
+        if (dialogOverlay) {
+            dialogOverlay.addEventListener('click', (e) => {
+                const selectedApiBtn = e.target.closest('[data-api-name]');
+                if (selectedApiBtn && targetInput) {
+                    targetInput.value = selectedApiBtn.dataset.apiName;
+                    targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    
+                    const closeBtn = dialogOverlay.querySelector('.ok-btn');
+                    if (closeBtn) closeBtn.click();
+                }
+            });
+        }
+
+        fetchApiList(1, '');
+    }
+
+    /**
+     * @description 为“新增爬虫规则”弹窗添加事件
+     */
+    if (addSiteModalElement) {
+        addSiteModalElement.addEventListener('click', (e) => {
+            if (e.target.id === 'select-api-btn') {
+                openApiSelectorModal();
             }
         });
     }
+    
 
     loadAndRenderRulesFromUrl();
     updateGridColumns();

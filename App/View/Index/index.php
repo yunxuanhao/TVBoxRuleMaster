@@ -29,6 +29,7 @@
             <div class="global-actions">
                 <div class="btn-group gbtn-sm">
                     <button id="saveBtn" class="btn primary-btn">保存修改</button>
+                    <button id="aiHelperBtn" class="btn secondary-btn">Ai帮写</button>
                     <button id="historyBtn" class="btn secondary-btn">文件历史</button>
                     <button id="online-edit-btn" class="btn secondary-btn">在线编辑</button>
                     <button id="downloadRulesBtn" class="btn secondary-btn">下载</button>
@@ -41,6 +42,7 @@
                     <button id="readUrlBtn" class="btn primary-btn">加载</button>
                     <button id="viewSourceBtn" class="btn secondary-btn">查看源码</button>
                     <button id="selectFileBtn" class="btn secondary-btn">选择文件</button>
+                    <button id="pushBtn" class="btn warning-btn">推送</button>
                 </div>
             </div>
         </header>
@@ -69,41 +71,66 @@
     <div id="templates" style="display: none;">
         
         <script id="add-site-modal-template" type="text/x-handlebars-template">
-            <div id="create-spider-form-modal" class="details-panel create-panel active" style="max-height:none; opacity:1; padding:0; background:none;">
+            <div id="create-spider-form-modal">
                 <div class="details-form-grid">
-                    <div class="form-group"><label for="new-site-name-modal">规则名称</label><input id="new-site-name-modal" type="text" placeholder="例如：酷云影视"></div>
-                    <div class="form-group"><label for="new-site-key-modal">唯一标识</label><input id="new-site-key-modal" type="text" placeholder="例如：ky_m"></div>
-                    
-                    <div class="form-group" style="grid-column: 1 / -1;">
-                        <label for="new-site-ext-modal">规则链接</label>
+                    <div class="details-item"><label class="details-label" for="new-site-name-modal">规则名称</label><input class="details-input" id="new-site-name-modal" type="text" placeholder="例如：酷云影视"></div>
+                    <div class="details-item"><label class="details-label" for="new-site-key-modal">唯一标识</label><input class="details-input" id="new-site-key-modal" type="text" placeholder="例如：ky_m"></div>
+                    <div class="details-item"><label class="details-label" for="new-site-type-modal">类型</label><select class="details-input" id="new-site-type-modal"><option value="1">1 (csp)</option><option value="0">0 (vod)</option><option value="2">2</option><option value="3" selected>3</option></select></div>
+                    <div class="details-item">
+                        <label class="details-label" for="new-site-api-modal">爬虫接口</label>
                         <div class="input-with-buttons">
-                            <input id="new-site-ext-modal" type="text" placeholder="./some/path/rule.json">
+                            <input class="details-input" id="new-site-api-modal" type="text" value="csp_XYQHiker">
+                            <button type="button" id="select-api-btn" class="btn btn-sm secondary-btn">选择</button>
+                        </div>
+                    </div>
+                    <div class="details-item" style="grid-column: 1 / -1;">
+                        <label class="details-label" for="new-site-ext-modal">规则链接</label>
+                        <div class="input-with-buttons">
+                            <input class="details-input" id="new-site-ext-modal" type="text" placeholder="./some/path/rule.json">
                             <button type="button" id="toggle-custom-content-btn" class="btn btn-sm secondary-btn">内容</button>
                         </div>
                     </div>
-                    
                     <div id="custom-content-wrapper" style="display: none; grid-column: 1 / -1;">
                         <div class="form-group">
                             <label for="new-site-custom-content-modal">自定义规则内容 (留空则使用默认模板)</label>
-                            <textarea id="new-site-custom-content-modal" rows="5"></textarea>
+                            <textarea id="new-site-custom-content-modal" class="details-input" rows="5"></textarea>
                         </div>
                         <div class="form-group checkbox-group">
                             <input type="checkbox" id="save-as-default-toggle-modal" style="width: auto;">
                             <label for="save-as-default-toggle-modal">将以上内容保存为该接口的默认模板</label>
                         </div>
                     </div>
-
-                    <div class="form-group"><label for="new-site-api-modal">爬虫接口</label><input id="new-site-api-modal" type="text" value="csp_XYQHiker"></div>
-                    <div class="form-group"><label for="new-site-type-modal">类型</label><select id="new-site-type-modal"><option value="1">1 (csp)</option><option value="0">0 (vod)</option><option value="2">2</option><option value="3" selected>3</option></select></div>
-                    <div class="form-group"><label for="new-site-jar-modal">Jar文件</label><input id="new-site-jar-modal" type="text" placeholder="例如：./libs/Panda.jar"></div>
+                    <div class="details-item" style="grid-column: 1 / -1;"><label class="details-label" for="new-site-jar-modal">Jar文件</label><textarea class="details-input" id="new-site-jar-modal" rows="3" placeholder="例如：./libs/Panda.jar"></textarea></div>
                     
-                    <div class="form-group checkbox-group">
-                        <input type="checkbox" id="new-site-searchable-modal" style="width: auto;" checked>
-                        <label>可搜索</label>
-                        <input type="checkbox" id="new-site-filterable-modal" style="width: auto;" checked>
-                        <label>可筛选</label>
-                        <input type="checkbox" id="new-site-quick-modal" style="width: auto;" checked>
-                        <label>快速搜索</label>
+                    <div class="details-item">
+                        <label class="details-label">可搜索</label>
+                        <div class="input-with-buttons">
+                            <input class="details-input" id="new-site-searchable-modal" type="text" value="1">
+                            <div class="btn-group gbtn-sm">
+                                <button type="button" class="btn success-btn" onclick="document.getElementById('new-site-searchable-modal').value = 1">是</button>
+                                <button type="button" class="btn danger-btn" onclick="document.getElementById('new-site-searchable-modal').value = 0">否</button>
+                            </div>
+                        </div>
+                    </div>
+                     <div class="details-item">
+                        <label class="details-label">快速搜索</label>
+                        <div class="input-with-buttons">
+                            <input class="details-input" id="new-site-quick-modal" type="text" value="1">
+                             <div class="btn-group gbtn-sm">
+                                <button type="button" class="btn success-btn" onclick="document.getElementById('new-site-quick-modal').value = 1">是</button>
+                                <button type="button" class="btn danger-btn" onclick="document.getElementById('new-site-quick-modal').value = 0">否</button>
+                            </div>
+                        </div>
+                    </div>
+                     <div class="details-item">
+                        <label class="details-label">可筛选</label>
+                        <div class="input-with-buttons">
+                            <input class="details-input" id="new-site-filterable-modal" type="text" value="1">
+                             <div class="btn-group gbtn-sm">
+                                <button type="button" class="btn success-btn" onclick="document.getElementById('new-site-filterable-modal').value = 1">是</button>
+                                <button type="button" class="btn danger-btn" onclick="document.getElementById('new-site-filterable-modal').value = 0">否</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -201,19 +228,16 @@
                         <div class="btn-group">
                             <button type="button" class="btn primary-btn create-new-btn" data-item-type="{{itemType}}">+ 新增</button>
                             <button type="button" class="btn danger-btn delete-all-btn" data-item-type="{{itemType}}">清空</button>
+                            {{#if (eq itemType "sites")}}
+                                 <button type="button" class="btn secondary-btn" id="filter-sites-btn">筛选</button>
+                            {{/if}}
                         </div>
                     {{else}}
                         <button type="button" class="btn danger-btn delete-all-btn" data-item-type="{{itemType}}">清空</button>
                     {{/if}}
                 </div>
                 <div class="right-controls">
-                    {{#if (eq itemType "sites")}}
-                        <div class="btn-group">
-                            <button type="button" class="btn secondary-btn site-filter-btn" data-filter-type="equals" data-filter-value="csp_XYQHiker">只看XYQH</button>
-                            <button type="button" class="btn secondary-btn site-filter-btn" data-filter-type="equals" data-filter-value="csp_XBPQ">只看XBPQ</button>
-                            <button type="button" class="btn secondary-btn site-filter-btn" data-filter-type="endsWith" data-filter-value=".js">只看Js</button>
-                        </div>
-                    {{/if}}
+
                 </div>
             </div>
             <div class="rule-list-grid"></div>
@@ -240,8 +264,15 @@
                     {{#if this.isBoolean}}
                         <div class="input-with-buttons">
                             <input class="details-input" type="text" id="{{this.id}}" value="{{this.value}}">
-                            <button type="button" class="btn btn-sm success-btn bool-setter" data-target-id="{{this.id}}" data-value="{{this.trueValue}}">{{this.trueText}}</button>
-                            <button type="button" class="btn btn-sm danger-btn bool-setter" data-target-id="{{this.id}}" data-value="{{this.falseValue}}">{{this.falseText}}</button>
+                            <div class="btn-group gbtn-sm">
+                                <button type="button" class="btn success-btn bool-setter" data-target-id="{{this.id}}" data-value="{{this.trueValue}}">{{this.trueText}}</button>
+                                <button type="button" class="btn danger-btn bool-setter" data-target-id="{{this.id}}" data-value="{{this.falseValue}}">{{this.falseText}}</button>
+                            </div>
+                        </div>
+                    {{else if (eq this.label "爬虫接口")}}
+                        <div class="input-with-buttons">
+                            <input class="details-input" type="text" id="{{this.id}}" value="{{this.value}}">
+                            <button type="button" class="btn btn-sm secondary-btn select-api-btn-edit">选择</button>
                         </div>
                     {{else if this.isTextarea}}
                         <textarea class="details-input" id="{{this.id}}" rows="3">{{this.value}}</textarea>
@@ -297,7 +328,74 @@
                 <input type="text" id="download-filename-input" value="config.json">
             </div>
         </script>
-
+        <script id="ai-helper-modal-template" type="text/x-handlebars-template">
+            <div class="ai-helper-content">
+                <h4>如何向 AI (例如 Gemini, ChatGPT) 请求编写TVbox爬虫规则</h4>
+                <p>为了让 AI 能准确地生成您需要的爬虫规则，您需要提供清晰、结构化的信息。请复制下方的模板，并根据您的目标网站填充内容。</p>
+                
+                <h5>第一步：提供关键信息</h5>
+                <ul>
+                    <li><strong>目标网站名称和URL</strong>：您想从哪个网站爬取数据。</li>
+                    <li><strong>目标页面类型</strong>：是首页、分类页、详情页还是搜索页？</li>
+                    <li><strong>目标数据</strong>：您想提取哪些具体内容（如：影片标题、图片、播放链接等）。</li>
+                    <li><strong>HTML片段</strong>：从目标网站的开发者工具(F12)中，复制包含目标数据的关键HTML代码块。这是最重要的一步。</li>
+                </ul>
+        
+                <h5>第二步：使用以下话术模板提问</h5>
+                <p><strong>点击下方代码块右上角的“复制”按钮，然后粘贴给 AI：</strong></p>
+                <div class="code-block-wrapper">
+                    <button class="copy-code-btn">复制</button>
+                    <pre><code>你好，请帮我编写一个 TVbox 的爬虫规则，用于爬取影视数据。具体要求如下：
+        
+        1.  **目标网站名称**：[请填写网站名称，例如：XX影视]
+        2.  **目标页面URL**：[请填写具体的页面链接，例如：https://example.com/dianying]
+        3.  **需要提取的数据**：
+            * 影片标题
+            * 影片封面图片地址
+            * 影片详情页链接
+            * 影片备注（如：更新至XX集/高清）
+        4.  **列表项的HTML结构参考**：
+            ```html
+            [请在这里粘贴从目标网站复制的一小段包含多部影片列表的HTML代码]
+            ```
+        5.  **输出格式要求**：请将结果格式化为 TVbox `csp_XYQHiker` 类型的爬虫规则，主要填充 `首页片单` 或 `分类片单` 相关的规则字段，例如 `分类列表数组规则`, `分类片单标题`, `分类片单链接`, `分类片单图片`, `分类片单副标题`。
+        
+        请根据以上信息生成规则。
+        </code></pre>
+                </div>
+                <p class="tip"><strong>提示</strong>：提供给AI的HTML代码片段越准确、越有代表性，生成的规则成功率就越高！</p>
+            </div>
+        </script>
+        <script id="push-modal-template" type="text/x-handlebars-template">
+            <div class="push-modal-content">
+                <div class="form-group">
+                    <label for="push-tvbox-ip">TvBox 接口地址</label>
+                    <div class="input-with-buttons">
+                        <input type="text" id="push-tvbox-ip" placeholder="请输入 http://192.168.x.x:9978">
+                        <button id="push-test-btn" class="btn secondary-btn">测试</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="push-config-url">配置文件</label>
+                    <div class="input-with-buttons">
+                        <input type="text" id="push-config-url" readonly>
+                        <button id="push-confirm-btn" class="btn primary-btn">确定</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="push-search-keyword">搜索资源</label>
+                    <div class="input-with-buttons">
+                        <input type="text" id="push-search-keyword" placeholder="输入要搜索的关键字">
+                        <button id="push-search-btn" class="btn secondary-btn">搜索</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>重要说明</label>
+                    <textarea readonly rows="4" style="background-color: #f8f9fa; color: rgba(248, 18, 18, 1); ">电视/手机必须和本编辑器在同一个网络（局域网）以上功能才能正常使用！
+支持的版本: 原版, takagen99版, EasyBox, 影迷, MBox, 影视</textarea>
+                </div>
+            </div>
+        </script>
     </div>
 
     <input type="file" id="localFileInput" accept=".json" style="display: none;">

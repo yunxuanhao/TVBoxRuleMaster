@@ -188,6 +188,7 @@
     border-radius: 6px;
 }
 .btn-group > .btn {
+	padding: 8px 16px;
     position: relative;
     flex: 1 1 auto;
     min-width: 0;
@@ -209,7 +210,6 @@
     border-top-right-radius: 6px !important;
     border-bottom-right-radius: 6px !important;
 }
-
 .btn-group.gbtn-lg > .btn {
     padding: 12px 24px;
     font-size: 16px;
@@ -226,8 +226,6 @@
     padding: 2px 6px;
     font-size: 11px;
 }
-
-
 .tabs {
 	display: flex;
 	flex-wrap: nowrap;
@@ -424,7 +422,28 @@
     from { opacity: 0; }
     to { opacity: 1; }
 }
+.modal-body::-webkit-scrollbar,
+.api-filter-grid::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
 
+.modal-body::-webkit-scrollbar-track,
+.api-filter-grid::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.modal-body::-webkit-scrollbar-thumb,
+.api-filter-grid::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 10px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover,
+.api-filter-grid::-webkit-scrollbar-thumb:hover {
+    background: #aaa;
+}
 
 .toast-container {
 	position: fixed;
@@ -720,7 +739,13 @@
     .btn-group::-webkit-scrollbar {
         display: none;
     }
-    
+
+    .btn {
+        min-width: 50px;
+        font-size: 13px;
+        padding: 8px 10px;
+    }
+
     .btn-group > .btn {
         flex: 0 0 auto;
         min-width: 50px;

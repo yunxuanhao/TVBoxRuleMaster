@@ -47,24 +47,24 @@ function WWW_URL($controller, $action, $params = []) {
     
     return $baseUrl;
 }
-
-    // 格式化路径用于VSCode
+/**
+ * 格式化路径以适配 VSCode 的文件协议
+ *
+ * @param string $path 原始路径
+ * @return string 格式化后的路径
+ */
 function formatPathForVSCode($path) {
-    // 统一使用正斜杠
     $path = str_replace('\\', '/', $path);
-    
-    // 处理Windows盘符 (如 C:/path → /C:/path)
     if (preg_match('/^[A-Za-z]:/', $path)) {
         $path = '/' . $path;
     }
-    
-    // 编码特殊字符但保留斜杠
     $parts = explode('/', $path);
     $encodedParts = array_map('rawurlencode', $parts);
     $encodedPath = implode('/', $encodedParts);
     
     return $encodedPath;
 }
+
 /**
  * 检测当前是否运行在本地开发环境
  * 
@@ -123,6 +123,28 @@ function isLocalEnvironment() {
     return false;
 }
 
+/**
+ * @description (新增) 递归删除目录及其所有内容
+ * @param string $dir 要删除的目录路径
+ * @return bool
+ */
+function deleteDirectory($dir) {
+    if (!file_exists($dir)) {
+        return true;
+    }
+    if (!is_dir($dir)) {
+        return unlink($dir);
+    }
+    foreach (scandir($dir) as $item) {
+        if ($item == '.' || $item == '..') {
+            continue;
+        }
+        if (!deleteDirectory($dir . DIRECTORY_SEPARATOR . $item)) {
+            return false;
+        }
+    }
+    return rmdir($dir);
+}
 /**
  * 发起一个 cURL HTTP 请求
  *

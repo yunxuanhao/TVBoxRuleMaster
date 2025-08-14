@@ -403,7 +403,6 @@ ul.file-list ul {
     color: #6c757d;
     word-break: break-all;
 }
-
 .header-actions {
     flex-shrink: 0;
 }
@@ -416,11 +415,9 @@ ul.file-list ul {
     gap: 0.3rem;
     margin-bottom: 20px;
 }
-
 .header-row {
     width: 100%;
 }
-
 .file-path {
     display: flex;
     align-items: center;
@@ -428,12 +425,10 @@ ul.file-list ul {
     font-weight: 500;
     color: #495057;
 }
-
 .file-icon {
     margin-right: 8px;
     font-size: 18px;
 }
-
 #sourceCodeView {
     display: block;
     white-space: pre-wrap;
@@ -443,13 +438,11 @@ ul.file-list ul {
     font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
     font-size: 14px;
 }
-
 #historyList {
     list-style: none;
     padding: 0;
     margin: 0;
 }
-
 .history-item {
     padding: 10px 15px;
     border-bottom: 1px solid #f0f0f0;
@@ -458,13 +451,37 @@ ul.file-list ul {
     word-break: break-all;
     font-size: 14px;
 }
-
 .history-item:last-child {
     border-bottom: none;
 }
-
 .history-item:hover {
     background-color: #f8f9fa;
+}
+.api-filter-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    max-height: 40vh;
+    overflow-y: auto;
+    padding: 5px;
+}
+.api-filter-grid::-webkit-scrollbar {
+    width: 6px;
+}
+
+.api-filter-grid::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+.ai-helper-content::-webkit-scrollbar-thumb,
+.api-filter-grid::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 10px;
+}
+
+.ai-helper-content::-webkit-scrollbar-thumb:hover,
+.api-filter-grid::-webkit-scrollbar-thumb:hover {
+    background: #aaa;
 }
 @media (max-width:768px) {
 	body {
