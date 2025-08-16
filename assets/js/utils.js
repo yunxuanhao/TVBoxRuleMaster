@@ -6,11 +6,8 @@
  * --------------------------------------------------------------------
  */
 
-
 /**
  * 切换标签页显示
- * @param {Event} evt - 点击事件对象。
- * @param {string} tabId - 要激活的目标标签页内容的ID。
  */
 function openTab(evt, tabId) {
     const clickedButton = evt.currentTarget;
@@ -52,20 +49,9 @@ function openTab(evt, tabId) {
     }
 }
 
-/**
- * 平滑地将页面滚动到顶部。
- */
-function scrollToTop() {
-    window.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-    });
-}
 
 /**
  * 显示一个短暂的通知消息 (Toast)。
- * @param {string} message - 要显示的消息内容。
- * @param {string} [type=''] -通知的类型，可选值: 'success', 'error', 'info'。
  */
 function showToast(message, type = '') {
     let toastContainer = document.querySelector('.toast-container');
@@ -88,188 +74,113 @@ function showToast(message, type = '') {
     }, 3000);
 }
 
+
+const activeModals = {}; // 存放弹窗实例
+
 /**
  * 通用模态弹窗类 (Modal Class)
  */
 class Modal {
-    /**
-     * @param {object} options - 弹窗配置
-     * @param {string} options.id - 弹窗的唯一ID
-     * @param {string} options.title - 弹窗的标题
-     * @param {string|HTMLElement} [options.content=''] - 弹窗主体内容
-     * @param {string|HTMLElement} [options.footer=''] - 弹窗页脚内容
-     * @param {function} [options.onClose=null] - 弹窗关闭时的回调函数
-     * @param {function} [options.onOpen=null] - 弹窗打开时的回调函数
-     */
     constructor(options) {
         this.options = Object.assign({
-            id: null,
-            title: '',
+            title: 'Modal',
             content: '',
             footer: '',
+            id: null,
+            width: '650px',
+            height: '60%',
+            resizable: true,
+            showMax: true,
+            showMin: true,
+            showFull: true,
             onClose: null,
-            onOpen: null
         }, options);
-
-        this.modalElement = null;
-        this._createModal();
-        this._attachEventListeners();
+        this.winboxInstance = null;
+        this.open();
     }
 
-    /**
-     * 内部方法：创建弹窗的HTML结构
-     * @private
-     */
-    _createModal() {
-        if (!this.options.id) {
-            console.error('Modal ID is required.');
-            return;
-        }
-
-        this.modalElement = document.createElement('div');
-        this.modalElement.className = 'modal-container';
-        this.modalElement.id = this.options.id;
-        this.modalElement.style.display = 'none';
-
-        const modalHTML = `
-            <div class="modal-overlay"></div>
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3 class="modal-title">${this.options.title}</h3>
-                    <button type="button" class="modal-close-btn" aria-label="Close">&times;</button>
-                </div>
-                <div class="modal-body"></div>
-                ${this.options.footer ? '<div class="modal-footer"></div>' : ''}
-            </div>
-        `;
-        this.modalElement.innerHTML = modalHTML;
-        
-        this.bodyElement = this.modalElement.querySelector('.modal-body');
-        this.setBody(this.options.content);
-
-        if (this.options.footer) {
-            this.footerElement = this.modalElement.querySelector('.modal-footer');
-            this.setFooter(this.options.footer);
-        }
-
-        document.body.appendChild(this.modalElement);
-    }
-
-    /**
-     * 内部方法：为关闭按钮和遮罩层绑定关闭事件
-     * @private
-     */
-    _attachEventListeners() {
-        this.modalElement.querySelector('.modal-close-btn').addEventListener('click', () => this.close());
-        this.modalElement.querySelector('.modal-overlay').addEventListener('click', () => this.close());
-    }
-
-    /** * 公共方法：打开弹窗
-     */
     open() {
-        this.modalElement.style.display = 'flex';
-        setTimeout(() => this.modalElement.classList.add('active'), 10);
-        if (typeof this.options.onOpen === 'function') {
-            this.options.onOpen();
+        if (this.winboxInstance) {
+            this.winboxInstance.focus();
+            return this;
         }
-    }
 
-    /** * 公共方法：关闭弹窗 (已修复)
-     */
-    close() {
-        if (this._isClosing) return;
-        this._isClosing = true;
-        this.modalElement.classList.remove('active');
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         
-        const handleTransitionEnd = () => {
-            this.modalElement.style.display = 'none';
-            this.modalElement.removeEventListener('transitionend', handleTransitionEnd);
-            this._isClosing = false;
-            
-            if (typeof this.options.onClose === 'function') {
-                this.options.onClose();
+        let controlClasses = [];
+        if (isMobile) {
+            controlClasses.push('no-max');
+        } else {
+            if (!this.options.showMax) controlClasses.push('no-max');
+            if (!this.options.showMin) controlClasses.push('no-min');
+            if (!this.options.showFull) controlClasses.push('no-full');
+        }
+
+        const winboxParams = {
+            id: this.options.id,
+            title: this.options.title,
+            class: ["modal-winbox", ...controlClasses],
+            x: isMobile ? 0 : 'center',
+            y: isMobile ? 0 : 'center',
+            width: isMobile ? '100%' : this.options.width,
+            height: isMobile ? '100%' : this.options.height,
+            resize: this.options.resizable,
+            onclose: () => {
+                if (typeof this.options.onClose === 'function') {
+                    this.options.onClose();
+                }
+                if (this.options.id) {
+                    delete activeModals[this.options.id];
+                }
+                this.winboxInstance = null;
+                return false;
             }
         };
 
-        this.modalElement.addEventListener('transitionend', handleTransitionEnd);
+        if (typeof this.options.content === 'string' && (this.options.content.startsWith('http') || this.options.content.startsWith('/') || this.options.content.startsWith('index.php'))) {
+            winboxParams.url = this.options.content;
+        } else {
+            const mainContentHtml = `<div class="modal-main-content">${this.options.content || ''}</div>`;
+            const footerHtml = this.options.footer ? `<div class="modal-footer">${this.options.footer}</div>` : '';
+            winboxParams.html = mainContentHtml + footerHtml;
+        }
 
-        setTimeout(handleTransitionEnd, this.options.animationDuration + 100);
+        this.winboxInstance = new WinBox(winboxParams);
+        if (this.options.id) {
+            activeModals[this.options.id] = this;
+        }
+        return this;
     }
 
-    /**
-     * 公共方法：设置弹窗标题
-     * @param {string} title - 新的标题
-     */
-    setTitle(title) {
-        const titleEl = this.modalElement.querySelector('.modal-title');
-        if (titleEl) titleEl.innerHTML = title;
-    }
-
-    /**
-     * 公共方法：设置弹窗主体内容
-     * @param {string|HTMLElement} content - 新的内容
-     */
-    setBody(content) {
-        if (!this.bodyElement) return;
-        this.bodyElement.innerHTML = '';
-        if (typeof content === 'string') {
-            this.bodyElement.innerHTML = content;
-        } else if (content instanceof HTMLElement) {
-            this.bodyElement.appendChild(content);
+    close() {
+        if (this.winboxInstance) {
+            this.winboxInstance.close();
         }
     }
     
-    /**
-     * 公共方法：设置弹窗页脚内容
-     * @param {string|HTMLElement} footerContent - 新的页脚内容
-     */
-    setFooter(footerContent) {
-        if (!this.footerElement) return;
-        this.footerElement.innerHTML = '';
-        if (typeof footerContent === 'string') {
-            this.footerElement.innerHTML = footerContent;
-        } else if (footerContent instanceof HTMLElement) {
-            this.footerElement.appendChild(footerContent);
-        }
-    }
-    
-    /**
-     * 公共方法：获取弹窗主体元素
-     * @returns {HTMLElement}
-     */
     getBodyElement() {
-        return this.bodyElement;
-    }
-    
-    /**
-     * 公共方法：获取弹窗页脚元素
-     * @returns {HTMLElement|undefined}
-     */
-    getFooterElement() {
-        return this.footerElement;
+        return this.winboxInstance?.body.querySelector('.modal-main-content');
     }
 
-    /**
-     * 公共方法：销毁弹窗并从DOM中移除
-     */
-    destroy() {
-        if (this.modalElement) {
-            document.body.removeChild(this.modalElement);
-            this.modalElement = null;
-        }
+    maximize() {
+        this.winboxInstance?.maximize();
+        return this;
+    }
+}
+
+
+/**
+ * @description 通过ID关闭一个WinBox窗口
+ */
+function closeModalById(id) {
+    const modalInstance = activeModals[id];
+    if (modalInstance) {
+        modalInstance.close();
     }
 }
 
 /**
- * 显示一个可配置的、返回Promise的异步对话框。(已修复)
- * @param {object} options - 对话框配置
- * @param {string} options.title - 标题
- * @param {string} options.message - 显示的文本消息
- * @param {string} [options.type='alert'] - 类型: 'alert', 'confirm', 'prompt'
- * @param {string} [options.placeholder=''] - 输入框的占位符 (仅 prompt 类型有效)
- * @param {string} [options.okText='确认'] - 确认按钮的文本
- * @param {string} [options.cancelText='取消'] - 取消按钮的文本
- * @returns {Promise<string|boolean>} - confirm类型resolve(true), prompt类型resolve(inputValue), alert类型resolve()。取消则reject。
+ * 显示一个可配置的、返回Promise的异步对话框。
  */
 function showDialog(options) {
     const config = Object.assign({
@@ -350,20 +261,20 @@ function showDialog(options) {
     });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    const scrollTopBtn = document.getElementById('scrollToTopBtn');
-    if (!scrollTopBtn) return;
-
-    scrollTopBtn.addEventListener('click', scrollToTop);
-
-    window.addEventListener('scroll', () => {
-        if (window.scrollY > 200) {
-            scrollTopBtn.classList.add('visible');
-        } else {
-            scrollTopBtn.classList.remove('visible');
+/**
+ * @description 注册通用的 Ctrl+S 保存快捷键。
+ * @param {function} onSave - 当用户按下 Ctrl+S 时要执行的回调函数。
+ */
+function setupSaveShortcut(onSave) {
+    document.addEventListener('keydown', (event) => {
+        if (event.ctrlKey && event.key === 's') {
+            event.preventDefault(); // 阻止浏览器默认的“保存网页”行为
+            if (typeof onSave === 'function') {
+                onSave();
+            }
         }
-    }, { passive: true });
-});
+    });
+}
 
 /**
  * 计算字符串的MD5哈希值。
@@ -543,3 +454,28 @@ function md5(string, options = {}) {
 
     return result;
 }
+
+/**
+ * 平滑地将页面滚动到顶部。
+ */
+function scrollToTop() {
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const scrollTopBtn = document.getElementById('scrollToTopBtn');
+    if (!scrollTopBtn) return;
+
+    scrollTopBtn.addEventListener('click', scrollToTop);
+
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 200) {
+            scrollTopBtn.classList.add('visible');
+        } else {
+            scrollTopBtn.classList.remove('visible');
+        }
+    }, { passive: true });
+});
