@@ -1,4 +1,4 @@
- /**
+/**
  * --------------------------------------------------------------------
  * @description 项目前端核心文件，文件负责处理TVbox规则编辑器的所有前端逻辑，包括表单渲染、数据处理、
  * 规则测试、弹窗管理以及与服务器的交互。
@@ -16,9 +16,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentEditInfo = {};
     let rawJsonContent = '';
     let currentConfigBaseDir = '';
+    let ruleClipboard = {
+        data: null,
+        sourceBaseDir: ''
+    };
     const defaultJsonUrl = 'https://raw.githubusercontent.com/liu673cn/box/refs/heads/main/m.json';
 
-/**
+    /**
      * @description 动态编译所有Handlebars模板
      */
     const templateIds = [
@@ -46,80 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return '';
     });
-
-    /**
-     * @description Modal弹窗实例化
-     */
-    const modalConfigs = [
-        {
-            name: 'detailsModal',
-            id: 'details-modal',
-            title: '编辑详情',
-            footer: '<button id="modal-save-btn" class="btn primary-btn">确认</button>'
-        },{
-            name: 'sourceViewModal',
-            id: 'source-view-modal',
-            title: '查看源码',
-            content: '<pre><code id="sourceCodeView" class="language-json"></code></pre>'
-        },{
-            name: 'downloadModal',
-            id: 'download-modal',
-            title: '下载配置及资源',
-            content: templates.downloadModal(),
-            footer: '<button id="start-download-btn" class="btn primary-btn">开始下载</button>'
-        },{
-            name: 'fileBrowserModal',
-            id: 'file-browser-modal',
-            title: '选择服务器上的配置文件',
-            footer: `
-                <button id="select-local-file-btn" class="btn secondary-btn">选择本地文件</button>
-                <button id="open-selected-file-btn" class="btn primary-btn">打开选中文件</button>
-            `
-        },{
-            name: 'addSiteModal',
-            id: 'add-site-modal',
-            title: '新增爬虫规则',
-            content: templates.addSiteModal(),
-            footer: '<button id="add-spider-btn-modal" class="btn primary-btn">添加</button>'
-        },{
-            name: 'addParseModal',
-            id: 'add-parse-modal',
-            title: '新增解析接口',
-            content: templates.addParseModal(),
-            footer: '<button id="add-parse-btn-modal" class="btn primary-btn">添加</button>'
-        },{
-            name: 'addFilterModal',
-            id: 'add-filter-modal',
-            title: '新增过滤规则',
-            content: templates.addFilterModal(),
-            footer: '<button id="add-filter-btn-modal" class="btn primary-btn">添加</button>'
-        },{
-            name: 'historyModal',
-            id: 'history-modal',
-            title: '加载历史记录',
-            content: '<div><ul id="historyList"></ul></div>',
-            footer: '<button id="clearHistoryBtn" class="btn danger-btn">清空历史记录</button>'
-        },{
-            name: 'aiHelperModal',
-            id: 'ai-helper-modal',
-            title: 'AI 帮写小助手',
-            content: templates.aiHelperModal(),
-            footer: '<button class="btn primary-btn" data-close-modal>关闭</button>'
-        },{
-            name: 'pushModal',
-            id: 'push-modal',
-            title: '推送至TVBox',
-            content: templates.pushModal(),
-            footer: '<button class="btn primary-btn" data-close-modal>关闭</button>'
-        }
-    ];
-
-    const modals = modalConfigs.reduce((acc, config) => {
-        const { name, ...options } = config;
-        acc[name] = new Modal(options);
-        return acc;
-    }, {});
-
+    
     /**
      * @description 页面主要元素的引用
      */
@@ -543,8 +474,16 @@ document.addEventListener('DOMContentLoaded', () => {
      * @description 打开文件浏览器弹窗
      */
     async function openFileBrowser() {
-        modals.fileBrowserModal.open();
-        const body = modals.fileBrowserModal.getBodyElement();
+        const fileBrowserModal = new Modal({
+            id: 'file-browser-modal',
+            title: '选择服务器上的配置文件',
+            footer: `
+                <button id="select-local-file-btn" class="btn secondary-btn">选择本地文件</button>
+                <button id="open-selected-file-btn" class="btn primary-btn">打开选中文件</button>
+            `
+        });
+
+        const body = fileBrowserModal.getBodyElement();
         body.innerHTML = '<div class="loading-spinner"></div>';
         try {
             const response = await fetch('index.php/Proxy/listFiles');
@@ -564,7 +503,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * @description 打开选中的服务器文件
      */
     function openSelectedServerFile() {
-        const selectedRadio = modals.fileBrowserModal.getBodyElement().querySelector('input[name="server-file-radio"]:checked');
+        const selectedRadio = document.querySelector('#file-browser-modal .modal-main-content input[name="server-file-radio"]:checked');
         if (!selectedRadio) {
             showToast('请先选择一个JSON文件！', 'error');
             return;
@@ -573,7 +512,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentPath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/'));
         const newUrl = `${window.location.origin}${currentPath}/box/${filePath}`;
         jsonUrlInput.value = newUrl;
-        modals.fileBrowserModal.close();
+        closeModalById('file-browser-modal');
         loadAndRenderRulesFromUrl();
     }
     
@@ -599,7 +538,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         currentEditInfo = { itemData, itemType, index, config };
-        modals.detailsModal.setTitle(`编辑 - ${itemData.name || '项目'}`);
         
         const fields = config.fieldOrder.map(key => {
             if (!config.translations[key]) return null;
@@ -622,8 +560,12 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }).filter(Boolean);
         
-        modals.detailsModal.setBody(templates.detailsModalBody({ fields: fields }));
-        modals.detailsModal.open();
+        new Modal({
+            id: 'details-modal',
+            title: `编辑 - ${itemData.name || '项目'}`,
+            content: templates.detailsModalBody({ fields: fields }),
+            footer: '<button id="modal-save-btn" class="btn primary-btn">确认</button>'
+        });
     }
 
     /**
@@ -657,7 +599,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         currentRulesData[itemType][index] = updatedData;
         renderAllTabs(currentRulesData);
-        modals.detailsModal.close();
+        closeModalById('details-modal');
         showToast('修改已确认', 'success');
     }
 
@@ -798,7 +740,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentRulesData.sites.unshift(newSite);
         renderSitesTab(currentRulesData.sites);
         showToast('新爬虫规则已成功添加！', 'success');
-        modals.addSiteModal.close();
+        closeModalById('add-site-modal');
     }
 
     /**
@@ -830,7 +772,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentRulesData.parses.unshift(newParse);
         renderParsesTab(currentRulesData.parses, currentRulesData.flags);
         showToast('新解析接口已成功添加！', 'success');
-        modals.addParseModal.close();
+        closeModalById('add-parse-modal');
     }
 
     /**
@@ -858,7 +800,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentRulesData.rules.unshift(newRule);
         renderFiltersTab(currentRulesData.rules, currentRulesData.ads);
         showToast('新过滤规则已添加！', 'success');
-        modals.addFilterModal.close();
+        closeModalById('add-filter-modal');
     }
 
 
@@ -884,7 +826,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             showToast('开始下载流程...', 'info');
-            modals.downloadModal.close();
+            closeModalById('download-modal');
 
             document.getElementById('basic').classList.add('show-status');
             document.getElementById('sites').classList.add('show-status');
@@ -1057,92 +999,168 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {Event} e - 点击事件对象
      */
     async function handleGridItemClick(e) {
-        const itemContainer = e.target.closest('.rule-item-container');
-        if (!itemContainer) return;
-        
-        const itemType = itemContainer.dataset.itemType;
-        const index = parseInt(itemContainer.dataset.index, 10);
-        const itemData = currentRulesData[itemType]?.[index];
+    const itemContainer = e.target.closest('.rule-item-container');
+    if (!itemContainer) return;
+    
+    const itemType = itemContainer.dataset.itemType;
+    const index = parseInt(itemContainer.dataset.index, 10);
+    const itemData = currentRulesData[itemType]?.[index];
 
-        if (!itemData) return;
-        
-        const deleteButton = e.target.closest('.delete-item-btn');
-        if(deleteButton){
-            e.stopPropagation();
-            deleteItem(itemType, index);
+    if (!itemData) return;
+    
+    const deleteButton = e.target.closest('.delete-item-btn');
+    if(deleteButton){
+        e.stopPropagation();
+        deleteItem(itemType, index);
+        return;
+    }
+
+    const actionButton = e.target.closest('.action-btn');
+    if(actionButton){
+        e.stopPropagation();
+        const action = actionButton.dataset.action;
+         if (action === 'copy-rule') {
+            ruleClipboard.data = JSON.parse(JSON.stringify(itemData));
+            ruleClipboard.sourceBaseDir = currentConfigBaseDir;
+            showToast(`规则 “${itemData.name}” 已复制到剪贴板`, 'success');
+            return;
+        }
+        if (action === 'check-rule') {
+            checkRuleHealth(itemData);
+            return;
+        }
+        if (action === 'test-url' && actionButton.dataset.url) {
+            window.open(actionButton.dataset.url, '_blank');
+        } else if (action === 'edit-file') {
+            updateCurrentRulesDataFromForm();
+            
+            let targetFile = null;
+            const extPath = parseAssetPath(itemData.ext);
+            if (extPath && /\.(json|js|py|txt)$/i.test(extPath)) {
+                targetFile = extPath;
+            }
+            const jarPath = parseAssetPath(itemData.jar);
+            if (!targetFile && jarPath && /\.(js|py)$/i.test(jarPath)) {
+                targetFile = jarPath;
+            }
+
+            if (!targetFile) {
+                showToast('该规则为内置或不可编辑文件类型', 'info');
+                return;
+            }
+
+            const isLocal = jsonUrlInput.value.includes(window.location.origin) && jsonUrlInput.value.includes('/box/');
+            let fileUrlPath;
+
+            if (isLocal) {
+                const mainConfigPath = new URL(jsonUrlInput.value).pathname;
+                const baseDir = mainConfigPath.substring(0, mainConfigPath.lastIndexOf('/'));
+                const relativeFilePath = targetFile.replace('./', '');
+                fileUrlPath = `${baseDir}/${relativeFilePath}`.replace('/box/', '');
+
+                try {
+                    const response = await fetch(`index.php/Proxy/checkFileExists?path=${encodeURIComponent(fileUrlPath)}`);
+                    const result = await response.json();
+                    if (!result.exists) {
+                        showToast('文件在服务器上不存在，请先下载', 'error');
+                        return;
+                    }
+                } catch (error) {
+                     showToast('检查文件是否存在时出错', 'error');
+                     return;
+                }
+            } else {
+                const targetDir = document.getElementById('download-dir-input').value.trim();
+                const targetStatusId = /\.(json|js|py)$/i.test(extPath) ? `site-${index}-ext` : `site-${index}-jar`;
+                if (downloadStatus[targetStatusId] !== 'downloaded') {
+                    showToast('请先下载此规则文件才能进行编辑', 'error');
+                    return;
+                }
+                if (!targetDir) {
+                    showToast('下载目录未设置，无法确定文件路径', 'error');
+                    return;
+                }
+                fileUrlPath = `${targetDir}/${targetFile.replace('./', '')}`;
+            }
+            
+            const openUrl = `index.php/Edit?file=${encodeURIComponent(fileUrlPath)}&api=${encodeURIComponent(itemData.api || '')}`;
+            
+            const editorModal = new Modal({
+                id: 'editor-modal-' + md5(fileUrlPath),
+                title: '编辑 - ' + itemData.name,
+                content: openUrl,
+                width: '50%',
+                height: '70%',
+                showMin: false
+            });
+
+            editorModal.open();
+        }
+    } else {
+         openDetailsModal(itemData, itemType, index);
+    }
+}
+    
+    /**
+     * @description 检测单个规则的资源健康度
+     * @param {object} siteData - 被点击的爬虫规则对象
+     */
+    async function checkRuleHealth(siteData) {
+        if (!siteData.ext && !siteData.jar) {
+            showToast('该规则没有配置 ext 或 jar 链接，无需检测。', 'info');
             return;
         }
 
-        const actionButton = e.target.closest('.action-btn');
-        if(actionButton){
-            e.stopPropagation();
-            const action = actionButton.dataset.action;
-            if (action === 'test-url' && actionButton.dataset.url) {
-                window.open(actionButton.dataset.url, '_blank');
-            } else if (action === 'edit-file') {
-                updateCurrentRulesDataFromForm();
-                
-                const fileContent = JSON.stringify(currentRulesData, null, 2);
-                const blob = new Blob([fileContent], { type: 'application/json' });
-                const tempUrl = URL.createObjectURL(blob);
-                
-                let targetFile = null;
-                const extPath = parseAssetPath(itemData.ext);
-                if (extPath && /\.(json|js|py|txt)$/i.test(extPath)) {
-                    targetFile = extPath;
-                }
-                const jarPath = parseAssetPath(itemData.jar);
-                if (!targetFile && jarPath && /\.(js|py)$/i.test(jarPath)) {
-                    targetFile = jarPath;
-                }
+        showDialog({
+            type: 'alert',
+            title: `检测报告 - ${siteData.name}`,
+            message: '<div id="health-check-results"><div class="loading-spinner"></div><p style="text-align:center;">正在检测资源，请稍候...</p></div>',
+            okText: '关闭'
+        }).catch(()=>{});
 
-                if (!targetFile) {
-                    showToast('该规则为内置或不可编辑文件类型', 'info');
-                    return;
-                }
+        const resultsContainer = document.getElementById('health-check-results');
+        
+        try {
+            const formData = new FormData();
+            formData.append('extPath', siteData.ext || '');
+            formData.append('jarPath', siteData.jar || '');
+            formData.append('baseConfigUrl', jsonUrlInput.value);
 
-                const isLocal = jsonUrlInput.value.includes(window.location.origin) && jsonUrlInput.value.includes('/box/');
-                let fileUrlPath;
+            const response = await fetch('index.php/Proxy/checkAssetHealth', { method: 'POST', body: formData });
+            const result = await response.json();
 
-                if (isLocal) {
-                    const mainConfigPath = new URL(jsonUrlInput.value).pathname;
-                    const baseDir = mainConfigPath.substring(0, mainConfigPath.lastIndexOf('/'));
-                    const relativeFilePath = targetFile.replace('./', '');
-                    fileUrlPath = `${baseDir}/${relativeFilePath}`.replace('/box/', '');
-
-                    try {
-                        const response = await fetch(`index.php/Proxy/checkFileExists?path=${encodeURIComponent(fileUrlPath)}`);
-                        const result = await response.json();
-                        if (!result.exists) {
-                            showToast('文件在服务器上不存在，请先下载', 'error');
-                            return;
-                        }
-                    } catch (error) {
-                         showToast('检查文件是否存在时出错', 'error');
-                         return;
-                    }
-                } else {
-                    const targetDir = document.getElementById('download-dir-input').value.trim();
-                    const targetStatusId = /\.(json|js|py)$/i.test(extPath) ? `site-${index}-ext` : `site-${index}-jar`;
-                    if (downloadStatus[targetStatusId] !== 'downloaded') {
-                        showToast('请先下载此规则文件才能进行编辑', 'error');
-                        return;
-                    }
-                    if (!targetDir) {
-                        showToast('下载目录未设置，无法确定文件路径', 'error');
-                        return;
-                    }
-                    fileUrlPath = `${targetDir}/${targetFile.replace('./', '')}`;
-                }
-                
-                const openUrl = `index.php/Edit?file=${encodeURIComponent(fileUrlPath)}&api=${encodeURIComponent(itemData.api || '')}`;
-                window.open(openUrl, '_blank');
+            if (!result.success) {
+                throw new Error(result.message);
             }
-        } else {
-             openDetailsModal(itemData, itemType, index);
+
+            if (result.results.length === 0) {
+                resultsContainer.innerHTML = `<p>未找到任何可检测的链接。</p>`;
+                return;
+            }
+
+            let html = '<ul style="list-style:none; padding:0; margin:0;">';
+            result.results.forEach(res => {
+                let statusText = res.status;
+                let statusColor = 'grey';
+                if (statusText === '存在' || (typeof statusText === 'number' && statusText >= 200 && statusText < 400)) {
+                    statusColor = 'green';
+                } else {
+                    statusColor = 'red';
+                }
+                
+                html += `<li style="display:flex; justify-content:space-between; align-items:center; padding: 6px 0; border-bottom: 1px solid #eee;">
+                            <span style="word-break:break-all; font-size: 14px; padding-right: 10px;">${res.url}</span>
+                            <strong style="color:${statusColor}; flex-shrink:0;">${statusText}</strong>
+                         </li>`;
+            });
+            html += '</ul>';
+            resultsContainer.innerHTML = html;
+
+        } catch (error) {
+            resultsContainer.innerHTML = `<p style="color:red;">检测失败: ${error.message}</p>`;
         }
     }
-
+    
     /**
      * @description 页面初始化和事件绑定
      */
@@ -1203,47 +1221,38 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('请先加载一个配置文件！', 'error');
             return;
         }
-        modals.downloadModal.open();
+        new Modal({
+            id: 'download-modal',
+            title: '下载配置及资源',
+            content: templates.downloadModal(),
+            footer: '<button id="start-download-btn" class="btn primary-btn">开始下载</button>'
+        });
     });
     document.getElementById('aiHelperBtn').addEventListener('click', () => {
-        modals.aiHelperModal.open();
+        new Modal({
+            id: 'ai-helper-modal',
+            title: 'AI 帮写小助手',
+            content: templates.aiHelperModal(),
+        });
     });
     document.getElementById('historyBtn').addEventListener('click', () => {
         const history = getUrlHistory();
-        const listElement = document.getElementById('historyList');
-        if (!listElement) return;
-
-        listElement.innerHTML = '';
+        let listHtml = '<ul id="historyList">';
         if (history.length === 0) {
-            listElement.innerHTML = '<li>没有历史记录。</li>';
+            listHtml += '<li>没有历史记录。</li>';
         } else {
             history.forEach(url => {
-                const li = document.createElement('li');
-                li.textContent = url;
-                li.className = 'history-item';
-                li.title = `加载: ${url}`;
-                li.dataset.url = url;
-                listElement.appendChild(li);
+                listHtml += `<li class="history-item" data-url="${url}" title="加载: ${url}">${url}</li>`;
             });
         }
-        modals.historyModal.open();
-    });
+        listHtml += '</ul>';
 
-    modals.historyModal.getBodyElement().addEventListener('click', (e) => {
-        if (e.target && e.target.classList.contains('history-item')) {
-            const url = e.target.dataset.url;
-            jsonUrlInput.value = url;
-            modals.historyModal.close();
-            loadAndRenderRulesFromUrl();
-        }
-    });
-
-    modals.historyModal.getFooterElement().addEventListener('click', (e) => {
-        if (e.target && e.target.id === 'clearHistoryBtn') {
-            localStorage.removeItem('urlHistory');
-            document.getElementById('historyList').innerHTML = '<li>历史记录已清空。</li>';
-            showToast('历史记录已清空', 'success');
-        }
+        new Modal({
+            id: 'history-modal',
+            title: '加载历史记录',
+            content: listHtml,
+            footer: '<button id="clearHistoryBtn" class="btn danger-btn">清空历史记录</button>'
+        });
     });
     
     document.getElementById('online-edit-btn').addEventListener('click', () => {
@@ -1263,11 +1272,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('viewSourceBtn').addEventListener('click', () => {
         if (rawJsonContent) {
-            const codeElement = document.getElementById('sourceCodeView');
-            if (codeElement) {
-                codeElement.textContent = rawJsonContent;
-                modals.sourceViewModal.open();
-            }
+            const codeElement = document.createElement('pre');
+            codeElement.innerHTML = `<code id="sourceCodeView" class="language-json">${rawJsonContent}</code>`;
+            new Modal({
+                id: 'source-view-modal',
+                title: '查看源码',
+                content: codeElement.outerHTML,
+                width: '80%',
+                height: '80%'
+            });
         } else {
             showToast('请先加载一个规则文件以查看源码。', 'warning');
         }
@@ -1290,11 +1303,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (e.target.id === 'start-download-btn') startDownloadProcess();
         if (e.target.id === 'select-local-file-btn') {
-            modals.fileBrowserModal.close();
+            closeModalById('file-browser-modal');
             localFileInput.click();
         }
         if (e.target.id === 'open-selected-file-btn') openSelectedServerFile();
+        if (e.target.id === 'ai-helper-close-btn') closeModalById('ai-helper-modal');
 
+        // 处理历史记录项的点击
+        if (e.target && e.target.classList.contains('history-item')) {
+            const url = e.target.dataset.url;
+            jsonUrlInput.value = url;
+            closeModalById('history-modal');
+
+            loadAndRenderRulesFromUrl();
+        }
+
+        // 处理清空历史记录按钮的点击
+        if (e.target && e.target.id === 'clearHistoryBtn') {
+            localStorage.removeItem('urlHistory');
+            const historyList = document.getElementById('historyList');
+            if (historyList) {
+                historyList.innerHTML = '<li>历史记录已清空。</li>';
+            }
+            showToast('历史记录已清空', 'success');
+        }
+        
         /**
          * @description 处理推送到TVBox的请求
          * @param {string} action - 要执行的动作 (test_connection, push_config, search)
@@ -1380,15 +1413,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="api-filter-grid">`;
             
-            apiButtonsHtml = '';
+            let apiButtonsHtml = '';
             apiButtonsHtml += `<button class="btn secondary-btn" data-api-filter="*">显示全部</button>`;
+            if (otherApisExist) {
+                apiButtonsHtml += `<button class="btn secondary-btn" data-api-filter="__others__">其他接口</button>`;
+            }
             standardApis.forEach(api => {
                 apiButtonsHtml += `<button class="btn secondary-btn" data-api-filter="${api}">${api}</button>`;
             });
 
-            if (otherApisExist) {
-                apiButtonsHtml += `<button class="btn secondary-btn" data-api-filter="__others__">其他接口</button>`;
-            }
             dialogContentHtml += apiButtonsHtml + '</div>';
             
             try {
@@ -1434,6 +1467,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const filterValue = filterBtn.dataset.apiFilter;
                         const allSiteItems = document.querySelectorAll('#sites .rule-item-container');
                         
+                        let filterToastMessage = '';
                         allSiteItems.forEach(item => {
                             const siteData = currentRulesData.sites[parseInt(item.dataset.index, 10)];
                             if (!siteData) return;
@@ -1443,7 +1477,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 isMatch = true;
                                 filterToastMessage = '已显示全部规则';
                             } else if (filterValue === '__others__') {
-                                isMatch = !(siteData.api.startsWith('csp_') || siteData.api.endsWith('.js') || siteData.api.endsWith('.py'));
+                                isMatch = !(siteData.api && (siteData.api.startsWith('csp_') || siteData.api.endsWith('.js') || siteData.api.endsWith('.py')));
                                 filterToastMessage = '已筛选：其他接口';
                             } else {
                                 isMatch = siteData.api === filterValue;
@@ -1544,26 +1578,106 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
+        if (e.target.id === 'paste-rule-btn') {
+            if (!ruleClipboard.data) {
+                showToast('剪贴板为空，请先复制一条规则。', 'warning');
+                return;
+            }
+            
+            const newRule = JSON.parse(JSON.stringify(ruleClipboard.data));
+            
+            // 检查 key 和 name 冲突
+            let keyExists = currentRulesData.sites.some(site => site.key === newRule.key);
+            let nameExists = currentRulesData.sites.some(site => site.name === newRule.name);
+            while(keyExists || nameExists) {
+                newRule.name += '_复制';
+                newRule.key += '_copy';
+                keyExists = currentRulesData.sites.some(site => site.key === newRule.key);
+                nameExists = currentRulesData.sites.some(site => site.name === newRule.name);
+            }
+
+            showToast('正在粘贴规则并处理资源文件...', 'info');
+
+            try {
+                // 检查并复制 ext 和 jar 资源文件
+                for (const key of ['ext', 'jar']) {
+                    const assetPath = newRule[key];
+                    if (assetPath && typeof assetPath === 'string' && assetPath.startsWith('./')) {
+                        const formData = new FormData();
+                        formData.append('sourceBasePath', ruleClipboard.sourceBaseDir);
+                        formData.append('targetBasePath', currentConfigBaseDir);
+                        formData.append('assetRelativePath', assetPath);
+
+                        const response = await fetch('index.php/Proxy/copyAsset', { method: 'POST', body: formData });
+                        const result = await response.json();
+                        if (!result.success) {
+                            throw new Error(result.message);
+                        }
+                    }
+                }
+
+                currentRulesData.sites.unshift(newRule);
+                renderSitesTab(currentRulesData.sites);
+                showToast(`规则 “${newRule.name}” 已成功粘贴！`, 'success');
+
+            } catch (error) {
+                showToast(`粘贴失败: ${error.message}`, 'error');
+            }
+        }
+
+        
         const createNewBtn = e.target.closest('.create-new-btn');
         if (createNewBtn) {
             const itemType = createNewBtn.dataset.itemType;
             if (itemType === 'sites') {
-                const apiInput = document.getElementById('new-site-api-modal');
-                const label = document.querySelector('#add-site-modal label[for="save-as-default-toggle-modal"]');
-                if(apiInput && label) {
-                    const apiName = apiInput.value.trim();
-                     if (apiName) {
-                        label.textContent = `将以上内容保存为 ${apiName} 的默认模板`;
-                    } else {
-                        label.textContent = '将以上内容保存为该接口的默认模板';
+                new Modal({
+                    id: 'add-site-modal',
+                    title: '新增爬虫规则',
+                    content: templates.addSiteModal(),
+                    footer: '<button id="add-spider-btn-modal" class="btn primary-btn">添加</button>'
+                });
+                // Dynamic updates for the modal
+                setTimeout(() => {
+                    const addSiteModalElement = document.getElementById('add-site-modal');
+                    if(addSiteModalElement) {
+                        const nameInput = addSiteModalElement.querySelector('#new-site-name-modal');
+                        const apiInput = addSiteModalElement.querySelector('#new-site-api-modal');
+                        const keyInput = addSiteModalElement.querySelector('#new-site-key-modal');
+                        const label = addSiteModalElement.querySelector('label[for="save-as-default-toggle-modal"]');
+                        
+                        const updateDynamicFields = () => {
+                            const name = nameInput.value.trim();
+                            const api = apiInput.value.trim();
+                            if (name || api) {
+                                keyInput.value = md5(`${Date.now()}${name}${api}`, { pretty: true });
+                            } else {
+                                keyInput.value = '';
+                            }
+                            if (label) {
+                                label.textContent = api ? `将以上内容保存为 ${api} 的默认模板` : '将以上内容保存为该接口的默认模板';
+                            }
+                        };
+                        
+                        nameInput.addEventListener('input', updateDynamicFields);
+                        apiInput.addEventListener('input', updateDynamicFields);
+                        updateDynamicFields();
                     }
-                }
-                modals.addSiteModal.open();
+                }, 0);
 
             } else if (itemType === 'parses') {
-                modals.addParseModal.open();
+                new Modal({
+                    id: 'add-parse-modal',
+                    title: '新增解析接口',
+                    content: templates.addParseModal(),
+                    footer: '<button id="add-parse-btn-modal" class="btn primary-btn">添加</button>'
+                });
             } else if (itemType === 'rules') {
-                modals.addFilterModal.open();
+                 new Modal({
+                    id: 'add-filter-modal',
+                    title: '新增过滤规则',
+                    content: templates.addFilterModal(),
+                    footer: '<button id="add-filter-btn-modal" class="btn primary-btn">添加</button>'
+                });
             }
         }
     });
@@ -1573,20 +1687,26 @@ document.addEventListener('DOMContentLoaded', () => {
      */
 
     document.getElementById('pushBtn').addEventListener('click', () => {
-        const configUrlInput = document.getElementById('push-config-url');
-        const tvboxIpInput = document.getElementById('push-tvbox-ip');
+        const pushModal = new Modal({
+            id: 'push-modal',
+            title: '推送至TVBox',
+            content: templates.pushModal(),
+        });
         
-        configUrlInput.value = jsonUrlInput.value;
-        tvboxIpInput.value = localStorage.getItem('tvbox_push_ip') || '';
-
-        modals.pushModal.open();
+        // Populate fields after modal is created
+        setTimeout(() => {
+            const configUrlInput = document.getElementById('push-config-url');
+            const tvboxIpInput = document.getElementById('push-tvbox-ip');
+            if(configUrlInput) configUrlInput.value = jsonUrlInput.value;
+            if(tvboxIpInput) tvboxIpInput.value = localStorage.getItem('tvbox_push_ip') || '';
+        }, 0);
     });
 
     /**
      * @description 为“新增爬虫规则”弹窗添加动态交互
      */
-    const addSiteModalElement = document.getElementById('add-site-modal');
-    if (addSiteModalElement) {
+    if (document.body.querySelector('#add-site-modal')) {
+        const addSiteModalElement = document.body.querySelector('#add-site-modal');
         const nameInput = addSiteModalElement.querySelector('#new-site-name-modal');
         const apiInput = addSiteModalElement.querySelector('#new-site-api-modal');
         const keyInput = addSiteModalElement.querySelector('#new-site-key-modal');
@@ -1619,13 +1739,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        const originalOpen = modals.addSiteModal.open.bind(modals.addSiteModal);
-        modals.addSiteModal.open = () => {
-            originalOpen();
-            if (!keyInput.value.trim()) {
-                 updateDynamicFields();
-            }
-        };
+        updateDynamicFields();
     }
 
     /**
@@ -1657,7 +1771,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         
         const fetchApiList = async (page, search = '') => {
-            if (isLoading || page > totalPages) return;
+            if (isLoading || (page > 1 && page > totalPages)) return;
             isLoading = true;
             if (page === 1) listContainer.innerHTML = '<div class="loading-spinner"></div>';
 
@@ -1720,15 +1834,24 @@ document.addEventListener('DOMContentLoaded', () => {
     /**
      * @description 为“新增爬虫规则”弹窗添加事件
      */
-    if (addSiteModalElement) {
-        addSiteModalElement.addEventListener('click', (e) => {
+    if (document.body.querySelector('#add-site-modal')) {
+        document.body.querySelector('#add-site-modal').addEventListener('click', (e) => {
             if (e.target.id === 'select-api-btn') {
-                openApiSelectorModal();
+                const apiInput = document.getElementById('new-site-api-modal');
+                openApiSelectorModal(apiInput);
             }
         });
-    }
+    }    
+    /**
+     * @description 首页 Ctrl+S 保存快捷键
+     */
+    setupSaveShortcut(() => {
+        const saveButton = document.getElementById('saveBtn');
+        if (saveButton) {
+            saveButton.click();
+        }
+    });
     
-
     loadAndRenderRulesFromUrl();
     updateGridColumns();
 });

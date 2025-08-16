@@ -12,14 +12,14 @@
             padding: 0;
             height: 100%;
             width: 100%;
-            overflow: hidden; /* 防止出现滚动条 */
+            overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: #f8f9fa;
         }
         .editor-page-wrapper {
             display: flex;
             flex-direction: column;
-            height: 100vh; /* 占满整个视口高度 */
+            height: 100vh;
         }
         .editor-header {
             display: flex;
@@ -28,7 +28,7 @@
             padding: 8px 15px;
             background-color: #fff;
             border-bottom: 1px solid #dee2e6;
-            flex-shrink: 0; /* 防止头部被压缩 */
+            flex-shrink: 0;
         }
         .file-info .file-name {
             font-weight: 600;
@@ -40,10 +40,25 @@
             margin-top: 2px;
         }
         #editor-container {
-            flex-grow: 1; /* 编辑器占满所有剩余空间 */
+            flex-grow: 1;
             position: relative;
         }
-        .checkbox-group { margin: 0; } /* 修正弹窗内边距 */
+        .checkbox-group { margin: 0; }
+        
+        #editor-container ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        #editor-container ::-webkit-scrollbar-track {
+            background: #2c313a;
+        }
+        #editor-container ::-webkit-scrollbar-thumb {
+            background: #5c677b;
+            border-radius: 4px;
+        }
+        #editor-container ::-webkit-scrollbar-thumb:hover {
+            background: #7885a1;
+        }
     </style>
 </head>
 <body>
@@ -63,7 +78,6 @@
         <div class="header-actions">
             <div class="btn-group">
                 <button id="vscodeBtn" class="btn secondary-btn" title="在VSCode中打开">VSCode</button>
-                <button id="fullscreenBtn" class="btn secondary-btn">全屏</button>
                 <button id="settingsBtn" class="btn secondary-btn">设置</button>
                 <button id="saveBtn" class="btn primary-btn">保存</button>
             </div>
@@ -168,11 +182,6 @@
         let settingsModal = null;
         const editor = ace.edit("editor-container");
         
-        /**
-         * ---------------------------------------------------------------------
-         * 编辑器初始化
-         * ---------------------------------------------------------------------
-         */
         editor.setShowPrintMargin(false);
         const modelist = ace.require("ace/ext/modelist");
         const mode = modelist.getModeForPath(filePathFromServer).mode;
@@ -211,12 +220,13 @@
             enableSnippets: savedSettings.enableSnippets
         });
 
+         setupSaveShortcut(() => {
+            const saveButton = document.getElementById('saveBtn');
+            if (saveButton) {
+                saveButton.click();
+            }
+        });
 
-        /**
-         * ---------------------------------------------------------------------
-         * 页面主要按钮事件绑定
-         * ---------------------------------------------------------------------
-         */
         document.getElementById('saveBtn').addEventListener('click', () => {
             if (!filePathFromServer) {
                 showToast('文件路径未知，无法保存。', 'error');
@@ -330,31 +340,6 @@
             
             settingsModal.open();
         });
-
-        const fullscreenButton = document.getElementById('fullscreenBtn');
-        if (fullscreenButton) {
-            function toggleFullScreen() {
-                const doc = document;
-                const docEl = doc.documentElement;
-                const requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullscreen || docEl.msRequestFullscreen;
-                const cancelFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
-
-                if (!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
-                    if (requestFullScreen) {
-                        requestFullScreen.call(docEl);
-                    }
-                } else {
-                    if (cancelFullScreen) {
-                        cancelFullScreen.call(doc);
-                    }
-                }
-            }
-            fullscreenButton.addEventListener('click', toggleFullScreen);
-            document.addEventListener('fullscreenchange', () => {
-                const isFullScreen = !!document.fullscreenElement;
-                fullscreenButton.textContent = isFullScreen ? '退出全屏' : '全屏';
-            });
-        }
         
         function openInVSCode(fullPath) {
             if (!fullPath) {

@@ -186,6 +186,7 @@
 </script>
 
 <script src="/assets/js/handlebars.min.js"></script>
+<script src="/assets/js/winbox.bundle.min.js"></script>
 <script src="/assets/js/utils.js?t=<?php echo time();?>"></script>
 <script src="/assets/js/el.js"></script>
 <script src="/assets/js/script.js?t=<?php echo time();?>"></script>

@@ -192,7 +192,7 @@
             </div>
         </script>
         
-        <script id="site-item-template" type="text/x-handlebars-template">
+<script id="site-item-template" type="text/x-handlebars-template">
             <div id="site-item-{{index}}" class="rule-item-container" data-api="{{api}}" data-index="{{index}}" data-item-type="sites">
                 <button type="button" class="delete-item-btn">&times;</button>
                 <div class="form-group">
@@ -204,31 +204,24 @@
                     </label>
                     <div class="input-with-buttons">
                         <input type="text" id="site-{{index}}" value="{{displayValue}}" readonly>
-                        <div class="action-btn-group">
+                         <div class="btn-group gbtn-sm action-btn-group" role="group">
                              <button type="button" class="btn btn-sm secondary-btn action-btn" data-action="edit-file">编辑</button>
+                             <button type="button" class="btn btn-sm secondary-btn action-btn" data-action="copy-rule">复制</button>
+                             <button type="button" class="btn btn-sm warning-btn action-btn" data-action="check-rule">检测</button>
                         </div>
                     </div>
                 </div>
             </div>
         </script>
-
-        <script id="filter-item-template" type="text/x-handlebars-template">
-            <div id="rules-item-{{index}}" class="rule-item-container" data-index="{{index}}" data-item-type="rules">
-                <button type="button" class="delete-item-btn">&times;</button>
-                <div class="form-group">
-                    <label for="rules-{{index}}">{{displayName}}</label>
-                    <textarea id="rules-{{index}}" readonly rows="3">{{displayValue}}</textarea>
-                </div>
-            </div>
-        </script>
         <script id="tab-content-template" type="text/x-handlebars-template">
-            <div class="controls-container d-flex justify-between align-items-center">
+            <div class="controls-container d-flex justify-between align-items-center flex-nowrap">
                 <div class="left-controls">
                     {{#if showCreateButton}}
                         <div class="btn-group">
                             <button type="button" class="btn primary-btn create-new-btn" data-item-type="{{itemType}}">+ 新增</button>
                             <button type="button" class="btn danger-btn delete-all-btn" data-item-type="{{itemType}}">清空</button>
                             {{#if (eq itemType "sites")}}
+                                 <button type="button" class="btn secondary-btn" id="paste-rule-btn">粘贴</button>
                                  <button type="button" class="btn secondary-btn" id="filter-sites-btn">筛选</button>
                             {{/if}}
                         </div>
@@ -237,25 +230,10 @@
                     {{/if}}
                 </div>
                 <div class="right-controls">
-
                 </div>
             </div>
             <div class="rule-list-grid"></div>
         </script>
-        <script id="tab-content-template1" type="text/x-handlebars-template">
-            <div class="controls-container">
-                <div class="left-controls">
-                    <div class="btn-group">
-                         <button type="button" class="btn danger-btn delete-all-btn" data-item-type="{{itemType}}">删除全部</button>
-                    </div>
-                </div>
-                <div class="right-controls">
-                    {{{rightControls}}}
-                </div>
-            </div>
-            <div class="rule-list-grid"></div>
-        </script>
-
         <script id="details-modal-body-template" type="text/x-handlebars-template">
             <div class="details-form-grid">
                 {{#each fields}}
@@ -378,7 +356,7 @@
                 <div class="form-group">
                     <label for="push-config-url">配置文件</label>
                     <div class="input-with-buttons">
-                        <input type="text" id="push-config-url" readonly>
+                        <input type="text" id="push-config-url">
                         <button id="push-confirm-btn" class="btn primary-btn">确定</button>
                     </div>
                 </div>
@@ -401,6 +379,7 @@
     <input type="file" id="localFileInput" accept=".json" style="display: none;">
     <div class="toast-container"></div>
     
+    <script src="assets/js/winbox.bundle.min.js"></script>
     <script src="assets/js/handlebars.min.js"></script>
     <script src="assets/js/utils.js?t=<?php echo time();?>"></script>
     <script src="assets/js/main.js?t=<?php echo time();?>"></script>

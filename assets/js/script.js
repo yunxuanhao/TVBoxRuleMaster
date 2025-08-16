@@ -1,4 +1,4 @@
- /**
+/**
  * --------------------------------------------------------------------
  * @description 项目前端核心文件，文件负责处理TVbox规则编辑器的所有前端逻辑，包括表单渲染、数据处理、
  * 规则测试、弹窗管理以及与服务器的交互。
@@ -68,7 +68,7 @@ function parseAndRenderRules(content) {
 
 /**
  * 从表单中收集所有数据并组装成一个JSON对象。
- * @returns {object} 包含所有表单数据的对象。
+ * @returns {object} 包含所有表单数据的的对象。
  */
 function collectFormDataIntoJson() {
     const form = document.getElementById('ruleForm');
@@ -108,42 +108,60 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     Handlebars.registerHelper('eq', (a, b) => a === b);
 
-    const testModal = new Modal({
-        id: 'testModal',
-        title: '测试CSS选择器',
-        content: renderTemplate('test-modal-template'),
-        footer: '<button id="manualTestBtn" class="btn primary-btn">运行测试</button>'
+    // 使用事件委托处理弹窗内的按钮点击
+    document.body.addEventListener('click', (event) => {
+        if (event.target.id === 'manualTestBtn') manualRunTest();
+        if (event.target.id === 'applySelectorBtn') applySelectorToField();
+        if (event.target.id === 'toggleSourceBtn') {
+            const sourceTextarea = document.getElementById('sourceHtmlInput');
+            if(sourceTextarea) sourceTextarea.style.display = sourceTextarea.style.display === 'none' ? 'block' : 'none';
+        }
+        if (event.target.id === 'saveVariablesBtn') saveVariables();
+        if (event.target.id === 'toggleResultModeBtn') toggleResultMode();
     });
 
-    const variableModal = new Modal({
-        id: 'variableModal',
-        title: '设置变量默认值',
-        content: renderTemplate('variable-modal-template'),
-        footer: '<button class="btn primary-btn" id="saveVariablesBtn">保存</button>'
-    });
-
-    const helpModal = new Modal({
-        id: 'helpModal',
-        title: 'TVbox规则语法帮助',
-        content: renderTemplate('help-modal-template')
-    });
-    
-    document.getElementById('manualTestBtn').addEventListener('click', manualRunTest);
-    document.getElementById('applySelectorBtn').addEventListener('click', applySelectorToField);
-    document.getElementById('toggleSourceBtn').addEventListener('click', () => {
-        const sourceTextarea = document.getElementById('sourceHtmlInput');
-        sourceTextarea.style.display = sourceTextarea.style.display === 'none' ? 'block' : 'none';
-    });
-    document.getElementById('saveVariablesBtn').addEventListener('click', saveVariables);
-    document.getElementById('toggleResultModeBtn').addEventListener('click', toggleResultMode);
-
-    // document.getElementById('advancedModeBtn').addEventListener('click', toggleAdvancedMode);
     document.getElementById('autoTestBtn').addEventListener('click', startAutomatedTest);
     
     document.getElementById('variableBtn').addEventListener('click', () => {
-        openVariableModal(variableModal); 
+        new Modal({
+            id: 'variableModal',
+            title: '设置变量默认值',
+            content: renderTemplate('variable-modal-template'),
+            footer: '<button id="saveVariablesBtn" class="btn primary-btn">保存</button>'
+        });
+    
+        setTimeout(() => {
+            const inputsContainer = document.getElementById('variableInputs');
+            if(!inputsContainer) return;
+            inputsContainer.innerHTML = '';
+            
+            const allVariables = ['wd', 'SearchPg', 'cateId', 'class', 'area', 'year', 'lang', 'by', 'catePg'];
+            allVariables.forEach(v => {
+                const div = document.createElement('div');
+                div.className = 'form-group';
+                const label = document.createElement('label');
+                label.innerText = `{${v}}`;
+                label.setAttribute('for', `var-${v}`);
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.id = `var-${v}`;
+                input.setAttribute('data-variable-name', v);
+                input.value = window.globalVariables[v] || '';
+                div.appendChild(label);
+                div.appendChild(input);
+                inputsContainer.appendChild(div);
+            });
+        }, 100);
     });
-    // document.getElementById('helpBtn').addEventListener('click', () => helpModal.open());
+
+    // document.getElementById('helpBtn').addEventListener('click', () => {
+    //     new Modal({
+    //         id: 'helpModal',
+    //         title: 'TVbox规则语法帮助',
+    //         content: renderTemplate('help-modal-template')
+    //     });
+    // });
+    
     document.getElementById('saveBtn').addEventListener('click', () => {
         if (!filePathFromServer) {
             showToast('文件路径未知，无法保存。', 'error');
@@ -174,13 +192,13 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast(`保存失败: ${err.message}`, 'error');
         });
     });
+
     document.getElementById('editBtn').addEventListener('click', 
         () => {
             const urlParams = new URLSearchParams(window.location.search);
             const file = urlParams.get('file');
             window.open('/index.php/Edit?file=' + file + '&api=editor', '_blank')
         }
-        
     );
 
     document.addEventListener('input', (event) => {
@@ -193,7 +211,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     renderForm();
-    //loadAdvancedModeState();
     loadVariables();
     
     if (typeof fileContentFromServer !== 'undefined' && fileContentFromServer && !fileContentFromServer.startsWith('错误：')) {
@@ -203,12 +220,13 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         loadFormData();
     }
-
-    window.modals = {
-        testModal,
-        variableModal,
-        helpModal
-    };
+    
+    setupSaveShortcut(() => {
+        const saveButton = document.getElementById('saveBtn');
+        if (saveButton) {
+            saveButton.click();
+        }
+    });
 });
 
 /**
@@ -497,76 +515,86 @@ async function openTestModal(key) {
     }
     
     const fieldDef = findFieldById(key);
-    window.modals.testModal.setTitle('测试：' + (fieldDef ? fieldDef.key : 'CSS选择器'));
-
-    document.getElementById('testSelectorInput').value = currentInputEle.value;
-    document.getElementById('testResultContent').innerHTML = '';
-    const resultContainer = document.querySelector('.test-result-container');
-    if(resultContainer) resultContainer.style.display = 'none';
     
-    testResultsCache = [];
-    isHtmlMode = false;
-    document.getElementById('toggleResultModeBtn').innerText = '切换到HTML模式';
+    new Modal({
+        id: 'testModal',
+        title: '测试：' + (fieldDef ? fieldDef.key : 'CSS选择器'),
+        content: renderTemplate('test-modal-template'),
+        footer: '<button id="manualTestBtn" class="btn primary-btn">运行测试</button>',
+        width: '700px',
+        height: '80%'
+    });
 
-    const sourceInput = document.getElementById('sourceHtmlInput');
-    if (sourceInput) {
-        sourceInput.style.display = 'none';
-        sourceInput.value = '';
-    }
+    // 延迟以确保DOM元素已创建
+    setTimeout(async () => {
+        document.getElementById('testSelectorInput').value = currentInputEle.value;
+        document.getElementById('testResultContent').innerHTML = '';
+        const resultContainer = document.querySelector('.test-result-container');
+        if(resultContainer) resultContainer.style.display = 'none';
+        
+        testResultsCache = [];
+        isHtmlMode = false;
+        document.getElementById('toggleResultModeBtn').innerText = '切换到HTML模式';
 
-    let url = '';
-    const parentTabContent = currentInputEle.closest('.tab-content, .sub-tab-content');
-    if (parentTabContent) {
-        const parentId = parentTabContent.id;
-        if (parentId.startsWith('home')) {
-            url = document.getElementById('首页推荐链接')?.value || '';
-        } else if (parentId.startsWith('category')) {
-            let categoryUrlTemplate = document.getElementById('分类链接')?.value || '';
-            if (categoryUrlTemplate) {
-                url = categoryUrlTemplate.replace(/\[firstPage=.*?\]/, '');
-            }
-        } else if (parentId.startsWith('detail') || parentId.startsWith('play')) {
-            if (!tempDetailPageUrl) {
-                showToast('详情链接为空，正尝试自动获取...', 'info');
-                document.getElementById('testUrl').value = '正在自动获取链接...';
-                const categoryUrl = (document.getElementById('分类链接')?.value || '').replace(/\[firstPage=.*?\]/, '');
-                const listRule = document.getElementById('分类列表数组规则')?.value || '';
-                const linkRule = document.getElementById('分类片单链接')?.value || '';
-                const prefix = document.getElementById('分类片单链接加前缀')?.value || '';
-                const suffix = document.getElementById('分类片单链接加后缀')?.value || '';
-                if (!categoryUrl || !listRule || !linkRule) {
-                    url = '自动获取失败: 分类相关规则未填写';
-                    showToast(url, 'error');
-                } else {
-                    const headers = parseHeaders(document.getElementById('请求头参数').value);
-                    const listResult = await runTest(categoryUrl, listRule, null, headers);
-                    if (listResult.success && listResult.extractedElements.length > 0) {
-                        const contextHtml = listResult.extractedElements[0].outerHTML;
-                        const linkResult = await runTest(null, linkRule, contextHtml, headers);
-                        if (linkResult.success && linkResult.finalResult.length > 0) {
-                            const linkPart = linkResult.finalResult[0];
-                            tempDetailPageUrl = prefix + linkPart + suffix;
-                            url = tempDetailPageUrl;
-                            showToast('已自动获取详情页链接！', 'success');
+        const sourceInput = document.getElementById('sourceHtmlInput');
+        if (sourceInput) {
+            sourceInput.style.display = 'none';
+            sourceInput.value = '';
+        }
+
+        let url = '';
+        const parentTabContent = currentInputEle.closest('.tab-content, .sub-tab-content');
+        if (parentTabContent) {
+            const parentId = parentTabContent.id;
+            if (parentId.startsWith('home')) {
+                url = document.getElementById('首页推荐链接')?.value || '';
+            } else if (parentId.startsWith('category')) {
+                let categoryUrlTemplate = document.getElementById('分类链接')?.value || '';
+                if (categoryUrlTemplate) {
+                    url = categoryUrlTemplate.replace(/\[firstPage=.*?\]/, '');
+                }
+            } else if (parentId.startsWith('detail') || parentId.startsWith('play')) {
+                if (!tempDetailPageUrl) {
+                    showToast('详情链接为空，正尝试自动获取...', 'info');
+                    document.getElementById('testUrl').value = '正在自动获取链接...';
+                    const categoryUrl = (document.getElementById('分类链接')?.value || '').replace(/\[firstPage=.*?\]/, '');
+                    const listRule = document.getElementById('分类列表数组规则')?.value || '';
+                    const linkRule = document.getElementById('分类片单链接')?.value || '';
+                    const prefix = document.getElementById('分类片单链接加前缀')?.value || '';
+                    const suffix = document.getElementById('分类片单链接加后缀')?.value || '';
+                    if (!categoryUrl || !listRule || !linkRule) {
+                        url = '自动获取失败: 分类相关规则未填写';
+                        showToast(url, 'error');
+                    } else {
+                        const headers = parseHeaders(document.getElementById('请求头参数').value);
+                        const listResult = await runTest(categoryUrl, listRule, null, headers);
+                        if (listResult.success && listResult.extractedElements.length > 0) {
+                            const contextHtml = listResult.extractedElements[0].outerHTML;
+                            const linkResult = await runTest(null, linkRule, contextHtml, headers);
+                            if (linkResult.success && linkResult.finalResult.length > 0) {
+                                const linkPart = linkResult.finalResult[0];
+                                tempDetailPageUrl = prefix + linkPart + suffix;
+                                url = tempDetailPageUrl;
+                                showToast('已自动获取详情页链接！', 'success');
+                            } else {
+                                url = '自动获取失败: 未能从分类项中提取到链接';
+                                showToast(url, 'error');
+                            }
                         } else {
-                            url = '自动获取失败: 未能从分类项中提取到链接';
+                            url = '自动获取失败: 未能在分类页找到列表';
                             showToast(url, 'error');
                         }
-                    } else {
-                        url = '自动获取失败: 未能在分类页找到列表';
-                        showToast(url, 'error');
                     }
+                } else {
+                    url = tempDetailPageUrl;
                 }
-            } else {
-                url = tempDetailPageUrl;
+            } else if (parentId.startsWith('search')) {
+                url = document.getElementById('搜索链接')?.value || '';
             }
-        } else if (parentId.startsWith('search')) {
-            url = document.getElementById('搜索链接')?.value || '';
         }
-    }
-    
-    document.getElementById('testUrl').value = url || '请手动输入URL';
-    window.modals.testModal.open();
+        
+        document.getElementById('testUrl').value = url || '请手动输入URL';
+    }, 100);
 }
 
 /**
@@ -839,35 +867,6 @@ function insertVariable(variable) {
 }
 
 /**
- * 打开变量设置弹窗并填充内容。
- * @param {Modal} modalInstance - 变量弹窗的实例。
- */
-function openVariableModal(modalInstance) {
-    const inputsContainer = document.getElementById('variableInputs');
-    if(!inputsContainer) return;
-    inputsContainer.innerHTML = '';
-    
-    const allVariables = ['wd', 'SearchPg', 'cateId', 'class', 'area', 'year', 'lang', 'by', 'catePg'];
-    allVariables.forEach(v => {
-        const div = document.createElement('div');
-        div.className = 'form-group';
-        const label = document.createElement('label');
-        label.innerText = `{${v}}`;
-        label.setAttribute('for', `var-${v}`);
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.id = `var-${v}`;
-        input.setAttribute('data-variable-name', v);
-        input.value = window.globalVariables[v] || '';
-        div.appendChild(label);
-        div.appendChild(input);
-        inputsContainer.appendChild(div);
-    });
-
-    modalInstance.open();
-}
-
-/**
  * 保存用户在弹窗中设置的变量值。
  */
 function saveVariables() {
@@ -881,7 +880,7 @@ function saveVariables() {
     });
     localStorage.setItem('tvbox_variables', JSON.stringify(newVariables));
     window.globalVariables = newVariables;
-    window.modals.variableModal.close();
+    closeModalById('variableModal');
     showToast('变量已保存！', 'success');
 }
 
@@ -1012,19 +1011,33 @@ async function startAutomatedTest() {
     showToast('开始一键自动测试...', 'info');
     tempDetailPageUrl = '';
     
-    await testHomepage();
-    await testCategory();
-    await testDetail();
-    await testPlay();
-    
-    showToast('一键自动测试流程完成！', 'success');
+    // Create and open the modal first
+    new Modal({
+        id: 'testModal',
+        title: '一键测试进行中...',
+        content: renderTemplate('test-modal-template'),
+        footer: '<button id="manualTestBtn" class="btn primary-btn" style="display:none;">运行测试</button>',
+        width: '700px',
+        height: '80%'
+    });
+
+    // Use a timeout to ensure modal is rendered before tests start
+    setTimeout(async () => {
+        await testHomepage();
+        await testCategory();
+        await testDetail();
+        await testPlay();
+        
+        showToast('一键自动测试流程完成！', 'success');
+        const modalTitle = document.querySelector('#testModal .wb-title');
+        if (modalTitle) modalTitle.textContent = '一键测试完成';
+    }, 500);
 }
 
 /**
  * 自动测试首页规则。
  */
 async function testHomepage() {
-    await openTestModal('首页推荐链接');
     openTab({ currentTarget: document.querySelector('.tabs .tab-btn[onclick*="home"]') }, 'home');
     const homepageUrl = document.getElementById('首页推荐链接')?.value;
     const homepageRule = document.getElementById('首页片单列表数组规则')?.value;
@@ -1055,7 +1068,8 @@ async function testHomepage() {
  */
 async function testCategory() {
     openTab({ currentTarget: document.querySelector('.tabs .tab-btn[onclick*="category"]') }, 'category');
-    openSubTab({ currentTarget: document.querySelector('#category .sub-tab-btn') }, 'category-rules-basic');
+    const subTabButton = document.querySelector('#category .sub-tab-btn');
+    if (subTabButton) openSubTab({ currentTarget: subTabButton }, 'category-rules-basic');
     
     let categoryUrlTemplate = document.getElementById('分类链接')?.value || '';
     const categoryRule = document.getElementById('分类列表数组规则')?.value;
