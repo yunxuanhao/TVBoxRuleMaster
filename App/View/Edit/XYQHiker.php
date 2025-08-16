@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TVbox规则编辑器 - <?php echo isset($_GET['file']) ? htmlspecialchars($_GET['file']) : ''; ?></title>
+    <title>TVBox Rule Master - <?php echo isset($_GET['file']) ? htmlspecialchars($_GET['file']) : ''; ?></title>
     <link rel="stylesheet" href="/assets/css/ui.css?t=<?php echo time();?>">
     <link rel="stylesheet" href="/assets/css/main.css?t=<?php echo time();?>">
 </head>
