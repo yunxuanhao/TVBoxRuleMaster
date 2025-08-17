@@ -100,8 +100,17 @@
                             <label for="save-as-default-toggle-modal">将以上内容保存为该接口的默认模板</label>
                         </div>
                     </div>
-                    <div class="details-item" style="grid-column: 1 / -1;"><label class="details-label" for="new-site-jar-modal">Jar文件</label><textarea class="details-input" id="new-site-jar-modal" rows="3" placeholder="例如：./libs/Panda.jar"></textarea></div>
-                    
+                    <div class="details-item" style="grid-column: 1 / -1;">
+                        <label class="details-label" for="new-site-jar-modal">Jar文件</label>
+                        <div class="input-with-buttons">
+                            <textarea class="details-input" id="new-site-jar-modal" rows="3" placeholder="例如：./libs/Panda.jar"></textarea>
+                            <div class="btn-group gbtn-sm" style="flex-direction: column; gap: 5px;">
+                                <input type="file" class="jar-file-input" accept=".jar" style="display: none;">
+                                <button type="button" class="btn secondary-btn select-jar-btn">选择</button>
+                                <button type="button" class="btn primary-btn upload-jar-btn">上传</button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="details-item">
                         <label class="details-label">可搜索</label>
                         <div class="input-with-buttons">
@@ -214,15 +223,15 @@
             </div>
         </script>
         <script id="tab-content-template" type="text/x-handlebars-template">
-            <div class="controls-container d-flex justify-between align-items-center flex-nowrap">
+            <div class="controls-container d-flex justify-between align-items-center flex-wrap">
                 <div class="left-controls">
                     {{#if showCreateButton}}
                         <div class="btn-group">
                             <button type="button" class="btn primary-btn create-new-btn" data-item-type="{{itemType}}">+ 新增</button>
                             <button type="button" class="btn danger-btn delete-all-btn" data-item-type="{{itemType}}">清空</button>
                             {{#if (eq itemType "sites")}}
-                                 <button type="button" class="btn secondary-btn" id="paste-rule-btn">粘贴</button>
-                                 <button type="button" class="btn secondary-btn" id="filter-sites-btn">筛选</button>
+                                <button type="button" class="btn secondary-btn" id="paste-rule-btn">粘贴</button>
+                                <button type="button" class="btn secondary-btn" id="filter-sites-btn">筛选</button>
                             {{/if}}
                         </div>
                     {{else}}
@@ -251,6 +260,15 @@
                         <div class="input-with-buttons">
                             <input class="details-input" type="text" id="{{this.id}}" value="{{this.value}}">
                             <button type="button" class="btn btn-sm secondary-btn select-api-btn-edit">选择</button>
+                        </div>
+                    {{else if (eq this.label "Jar文件")}}
+                        <div class="input-with-buttons">
+                            <textarea class="details-input" id="{{this.id}}" rows="3">{{this.value}}</textarea>
+                            <div class="btn-group gbtn-sm" style="flex-direction: column; gap: 5px;">
+                                <input type="file" class="jar-file-input" accept=".jar" style="display: none;">
+                                <button type="button" class="btn secondary-btn select-jar-btn">选择</button>
+                                <button type="button" class="btn primary-btn upload-jar-btn">上传</button>
+                            </div>
                         </div>
                     {{else if this.isTextarea}}
                         <textarea class="details-input" id="{{this.id}}" rows="3">{{this.value}}</textarea>
@@ -378,7 +396,11 @@
 
     <input type="file" id="localFileInput" accept=".json" style="display: none;">
     <div class="toast-container"></div>
-    
+    <script>
+        window.APP_CONFIG = {
+            DEFAULT_SAVE_PATH: '<?php echo C('DEFAULT_SAVE_PATH'); ?>'
+        };
+    </script>
     <script src="assets/js/winbox.bundle.min.js"></script>
     <script src="assets/js/handlebars.min.js"></script>
     <script src="assets/js/utils.js?t=<?php echo time();?>"></script>

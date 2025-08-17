@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>正在编辑 - <?php echo isset($_GET['file']) ? htmlspecialchars(basename($_GET['file'])) : 'N/A'; ?></title>
     <link rel="stylesheet" href="/assets/css/ui.css?t=<?php echo time();?>">
-    
     <style>
         html, body {
             margin: 0;
@@ -88,65 +87,67 @@
 </div>
 
 <script id="settings-modal-template" type="text/x-handlebars-template">
-    <div class="form-group">
-        <label for="theme-switcher">编辑器主题</label>
-        <select id="theme-switcher" class="form-control"></select>
-    </div>
-    <div class="form-group">
-        <label for="font-size-switcher">字体大小</label>
-        <select id="font-size-switcher" class="form-control">
-            <option value="12">12px</option>
-            <option value="14" selected>14px</option>
-            <option value="16">16px</option>
-            <option value="18">18px</option>
-            <option value="20">20px</option>
-            <option value="24">24px</option>
-        </select>
-    </div>
-    <div class="form-group">
-        <label for="soft-wrap-toggle">自动换行</label>
-        <select id="soft-wrap-toggle" class="form-control">
-            <option value="true">开启</option>
-            <option value="false">关闭</option>
-        </select>
-    </div>
-    <div class="form-group">
-        <label for="tab-size-switcher">Tab 宽度</label>
-        <select id="tab-size-switcher" class="form-control">
-            <option value="2">2空格</option>
-            <option value="4">4空格</option>
-        </select>
-    </div>
-    <div class="form-group">
-        <label for="keybinding-switcher">键盘快捷键方案</label>
-        <select id="keybinding-switcher" class="form-control">
-            <option value="">默认 (Ace)</option>
-            <option value="ace/keyboard/vscode">VSCode</option>
-            <option value="ace/keyboard/vim">Vim</option>
-            <option value="ace/keyboard/emacs">Emacs</option>
-            <option value="ace/keyboard/sublime">Sublime</option>
-        </select>
-    </div>
-    <div class="form-group checkbox-group">
-        <input type="checkbox" id="line-number-toggle" style="width: auto;">
-        <label for="line-number-toggle">隐藏行号</label>
-    </div>
-    <div class="form-group checkbox-group">
-        <input type="checkbox" id="highlight-line-toggle" style="width: auto;">
-        <label for="highlight-line-toggle">高亮当前行</label>
-    </div>
-    <div class="form-group checkbox-group">
-        <input type="checkbox" id="show-indent-guides-toggle" style="width: auto;">
-        <label for="show-indent-guides-toggle">显示缩进向导</label>
-    </div>
-    <div class="form-group checkbox-group">
-        <input type="checkbox" id="live-autocomplete-toggle" style="width: auto;">
-        <label for="live-autocomplete-toggle">实时自动补全</label>
-    </div>
-    <div class="form-group checkbox-group">
-        <input type="checkbox" id="enable-snippets-toggle" style="width: auto;">
-        <label for="enable-snippets-toggle">启用代码片段</label>
-    </div>
+    <form id="editor-settings-form">
+        <div class="form-group">
+            <label for="theme-switcher">编辑器主题</label>
+            <select id="theme-switcher" name="theme" class="form-control"></select>
+        </div>
+        <div class="form-group">
+            <label for="font-size-switcher">字体大小</label>
+            <select id="font-size-switcher" name="fontSize" class="form-control">
+                <option value="12">12px</option>
+                <option value="14">14px</option>
+                <option value="16">16px</option>
+                <option value="18">18px</option>
+                <option value="20">20px</option>
+                <option value="24">24px</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="soft-wrap-toggle">自动换行</label>
+            <select id="soft-wrap-toggle" name="softWrap" class="form-control">
+                <option value="true">开启</option>
+                <option value="false">关闭</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="tab-size-switcher">Tab 宽度</label>
+            <select id="tab-size-switcher" name="tabSize" class="form-control">
+                <option value="2">2空格</option>
+                <option value="4">4空格</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="keybinding-switcher">键盘快捷键方案</label>
+            <select id="keybinding-switcher" name="keybinding" class="form-control">
+                <option value="">默认 (Ace)</option>
+                <option value="ace/keyboard/vscode">VSCode</option>
+                <option value="ace/keyboard/vim">Vim</option>
+                <option value="ace/keyboard/emacs">Emacs</option>
+                <option value="ace/keyboard/sublime">Sublime</option>
+            </select>
+        </div>
+        <div class="form-group checkbox-group">
+            <input type="checkbox" id="line-number-toggle" name="hideGutter" value="true" style="width: auto;">
+            <label for="line-number-toggle">隐藏行号</label>
+        </div>
+        <div class="form-group checkbox-group">
+            <input type="checkbox" id="highlight-line-toggle" name="highlightLine" value="true" style="width: auto;">
+            <label for="highlight-line-toggle">高亮当前行</label>
+        </div>
+        <div class="form-group checkbox-group">
+            <input type="checkbox" id="show-indent-guides-toggle" name="showIndentGuides" value="true" style="width: auto;">
+            <label for="show-indent-guides-toggle">显示缩进向导</label>
+        </div>
+        <div class="form-group checkbox-group">
+            <input type="checkbox" id="live-autocomplete-toggle" name="liveAutocomplete" value="true" style="width: auto;">
+            <label for="live-autocomplete-toggle">实时自动补全</label>
+        </div>
+        <div class="form-group checkbox-group">
+            <input type="checkbox" id="enable-snippets-toggle" name="enableSnippets" value="true" style="width: auto;">
+            <label for="enable-snippets-toggle">启用代码片段</label>
+        </div>
+    </form>
 </script>
 
 <div class="toast-container"></div>
@@ -155,6 +156,7 @@
 <script src="/assets/js/ace/ext-modelist.js"></script>
 <script src="/assets/js/ace/ext-language_tools.js"></script>
 <script src="/assets/js/handlebars.min.js"></script>
+<script src="/assets/js/winbox.bundle.min.js"></script>
 <script src="/assets/js/utils.js?t=<?php echo time();?>"></script>
 
 <script>
@@ -179,7 +181,6 @@
     };
 
     document.addEventListener('DOMContentLoaded', () => {
-        let settingsModal = null;
         const editor = ace.edit("editor-container");
         
         editor.setShowPrintMargin(false);
@@ -220,7 +221,7 @@
             enableSnippets: savedSettings.enableSnippets
         });
 
-         setupSaveShortcut(() => {
+        setupSaveShortcut(() => {
             const saveButton = document.getElementById('saveBtn');
             if (saveButton) {
                 saveButton.click();
@@ -261,21 +262,26 @@
         });
 
         document.getElementById('settingsBtn').addEventListener('click', () => {
-            if (!settingsModal) {
-                const template = Handlebars.compile(document.getElementById('settings-modal-template').innerHTML);
-                settingsModal = new Modal({
-                    id: 'editor-settings-modal',
-                    title: '编辑器设置',
-                    content: template(),
-                    footer: `
-                        <button type="button" class="btn secondary-btn" data-close-modal>取消</button>
-                        <button type="button" class="btn primary-btn" id="apply-settings">应用</button>
-                    `
-                });
-                
+            const template = Handlebars.compile(document.getElementById('settings-modal-template').innerHTML);
+            
+            const settingsModal = new Modal({
+                id: 'editor-settings-modal',
+                title: '编辑器设置',
+                content: template(),
+                footer: `
+                    <button type="button" class="btn secondary-btn" data-close-modal>取消</button>
+                    <button type="button" class="btn primary-btn" id="apply-settings">应用</button>
+                `
+            });
+            
+            setTimeout(() => {
                 const modalBody = settingsModal.getBodyElement();
-                const themeSelect = modalBody.querySelector('#theme-switcher');
+                const footer = document.querySelector('#editor-settings-modal .modal-footer');
+                const form = modalBody.querySelector('#editor-settings-form');
+                if (!modalBody || !footer || !form) return;
 
+                // 填充主题下拉框
+                const themeSelect = form.elements['theme'];
                 themeSelect.innerHTML = '';
                 for (const groupName in aceThemes) {
                     const optgroup = document.createElement('optgroup');
@@ -287,18 +293,34 @@
                     themeSelect.appendChild(optgroup);
                 }
 
-                settingsModal.getFooterElement().querySelector('#apply-settings').addEventListener('click', () => {
+                // 填充当前设置到表单
+                form.elements['theme'].value = localStorage.getItem('ace_editor_theme') || 'ace/theme/monokai';
+                form.elements['fontSize'].value = localStorage.getItem('ace_editor_fontSize') || '14';
+                form.elements['hideGutter'].checked = localStorage.getItem('ace_editor_showGutter') === 'false';
+                form.elements['softWrap'].value = localStorage.getItem('ace_editor_softWrap') || 'false';
+                form.elements['tabSize'].value = localStorage.getItem('ace_editor_tabSize') || '4';
+                form.elements['highlightLine'].checked = localStorage.getItem('ace_editor_highlightLine') !== 'false';
+                form.elements['keybinding'].value = localStorage.getItem('ace_editor_keybinding') || '';
+                form.elements['liveAutocomplete'].checked = localStorage.getItem('ace_editor_liveAutocomplete') === 'true';
+                form.elements['enableSnippets'].checked = localStorage.getItem('ace_editor_enableSnippets') !== 'false';
+                form.elements['showIndentGuides'].checked = localStorage.getItem('ace_editor_showIndentGuides') !== 'false';
+
+                // 绑定按钮事件
+                footer.querySelector('#apply-settings').addEventListener('click', () => {
+                    const formData = new FormData(form);
+                    const rawSettings = Object.fromEntries(formData.entries());
+
                     const newSettings = {
-                        theme: modalBody.querySelector('#theme-switcher').value,
-                        fontSize: parseInt(modalBody.querySelector('#font-size-switcher').value, 10),
-                        showGutter: !modalBody.querySelector('#line-number-toggle').checked,
-                        softWrap: modalBody.querySelector('#soft-wrap-toggle').value === 'true',
-                        tabSize: parseInt(modalBody.querySelector('#tab-size-switcher').value, 10),
-                        highlightLine: modalBody.querySelector('#highlight-line-toggle').checked,
-                        keybinding: modalBody.querySelector('#keybinding-switcher').value,
-                        liveAutocomplete: modalBody.querySelector('#live-autocomplete-toggle').checked,
-                        enableSnippets: modalBody.querySelector('#enable-snippets-toggle').checked,
-                        showIndentGuides: modalBody.querySelector('#show-indent-guides-toggle').checked
+                        theme: rawSettings.theme,
+                        fontSize: parseInt(rawSettings.fontSize, 10),
+                        showGutter: !rawSettings.hasOwnProperty('hideGutter'), // 选中"隐藏"，则showGutter为false
+                        softWrap: rawSettings.softWrap === 'true',
+                        tabSize: parseInt(rawSettings.tabSize, 10),
+                        highlightLine: rawSettings.hasOwnProperty('highlightLine'),
+                        keybinding: rawSettings.keybinding,
+                        liveAutocomplete: rawSettings.hasOwnProperty('liveAutocomplete'),
+                        enableSnippets: rawSettings.hasOwnProperty('enableSnippets'),
+                        showIndentGuides: rawSettings.hasOwnProperty('showIndentGuides')
                     };
 
                     editor.setTheme(newSettings.theme);
@@ -323,22 +345,8 @@
                     settingsModal.close();
                 });
 
-                settingsModal.getFooterElement().querySelector('[data-close-modal]').addEventListener('click', () => settingsModal.close());
-            }
-
-            const modalBody = settingsModal.getBodyElement();
-            modalBody.querySelector('#theme-switcher').value = localStorage.getItem('ace_editor_theme') || 'ace/theme/monokai';
-            modalBody.querySelector('#font-size-switcher').value = localStorage.getItem('ace_editor_fontSize') || '14';
-            modalBody.querySelector('#line-number-toggle').checked = localStorage.getItem('ace_editor_showGutter') === 'false';
-            modalBody.querySelector('#soft-wrap-toggle').value = localStorage.getItem('ace_editor_softWrap') || 'false';
-            modalBody.querySelector('#tab-size-switcher').value = localStorage.getItem('ace_editor_tabSize') || '4';
-            modalBody.querySelector('#highlight-line-toggle').checked = localStorage.getItem('ace_editor_highlightLine') !== 'false';
-            modalBody.querySelector('#keybinding-switcher').value = localStorage.getItem('ace_editor_keybinding') || '';
-            modalBody.querySelector('#live-autocomplete-toggle').checked = localStorage.getItem('ace_editor_liveAutocomplete') === 'true';
-            modalBody.querySelector('#enable-snippets-toggle').checked = localStorage.getItem('ace_editor_enableSnippets') !== 'false';
-            modalBody.querySelector('#show-indent-guides-toggle').checked = localStorage.getItem('ace_editor_showIndentGuides') !== 'false';
-            
-            settingsModal.open();
+                footer.querySelector('[data-close-modal]').addEventListener('click', () => settingsModal.close());
+            }, 0);
         });
         
         function openInVSCode(fullPath) {

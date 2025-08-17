@@ -10,33 +10,40 @@ defined('IN_APP') or die('Direct access is not allowed.');
 
 class ProxyController extends BaseController  {
 
-    private $baseSaveDir = './box/';
-    private $cacheDir = './cache/';
-    private $cacheTtl = 5;
+    private $baseSaveDir;
+    private $cacheDir;
+    private $cacheTtl;
 
     /**
      * 构造函数，确保目录存在
      */
     public function __construct(){
         parent::__construct();
-        if (!is_dir($this->baseSaveDir)) mkdir($this->baseSaveDir, 0755, true);
-        
-        if (!is_dir($this->cacheDir)) {
-            mkdir($this->cacheDir, 0755, true);
-        } else {
-            $timestampFile = $this->cacheDir . md5('timestamp') . '.cache';
-            if (!file_exists($timestampFile)) {
-                touch($timestampFile);
+        $this->baseSaveDir = C('DEFAULT_SAVE_PATH') ?? './box/';
+        $this->cacheDir = C('PROXY_CACHE_PATH') ?? './cache/';
+        $this->cacheTtl = C('PROXY_CACHE_EXPIRE') ?? 5;
+
+        if (C('ENABLE_PROXY_CACHE') === true) {
+            if (!is_dir($this->baseSaveDir)) mkdir($this->baseSaveDir, 0755, true);
+            
+            if (!is_dir($this->cacheDir)) {
+                mkdir($this->cacheDir, 0755, true);
             } else {
-                if (time() - filemtime($timestampFile) >= $this->cacheTtl) {
-                    if (is_dir($this->cacheDir)) {
-                        deleteDirectory($this->cacheDir);
-                    }
-                    mkdir($this->cacheDir, 0755, true);
+                $timestampFile = $this->cacheDir . md5('timestamp') . '.cache';
+                if (!file_exists($timestampFile)) {
                     touch($timestampFile);
+                } else {
+                    if (time() - filemtime($timestampFile) >= $this->cacheTtl) {
+                        if (is_dir($this->cacheDir)) {
+                            deleteDirectory($this->cacheDir);
+                        }
+                        mkdir($this->cacheDir, 0755, true);
+                        touch($timestampFile);
+                    }
                 }
             }
         }
+        
     }
 
 
@@ -91,10 +98,12 @@ class ProxyController extends BaseController  {
         $cacheHash = md5($targetUrl);
         $cacheFilePath = $this->cacheDir . $cacheHash . '.cache';
 
-        if (file_exists($cacheFilePath) && (time() - filemtime($cacheFilePath) < $this->cacheTtl)) {
-            header('Content-Type: application/json; charset=utf-8');
-            echo file_get_contents($cacheFilePath);
-            exit;
+        if (C('ENABLE_PROXY_CACHE') === true) {
+            if (file_exists($cacheFilePath) && (time() - filemtime($cacheFilePath) < $this->cacheTtl)) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo file_get_contents($cacheFilePath);
+                exit;
+            }
         }
 
         $result = httpCurl(['url' => $targetUrl]);
@@ -106,7 +115,7 @@ class ProxyController extends BaseController  {
             $contentType = $result['info']['content_type'];
 
             if ($httpCode >= 200 && $httpCode < 400) {
-                file_put_contents($cacheFilePath, $result['body']);
+                if (C('ENABLE_PROXY_CACHE')) file_put_contents($cacheFilePath, $result['body']);
                 if ($contentType) header('Content-Type: ' . $contentType);
                 else header('Content-Type: application/json; charset=utf-8');
                 echo $result['body'];
@@ -246,7 +255,7 @@ class ProxyController extends BaseController  {
         if (!empty($customContent)) {
             $finalContent = $customContent;
         } else {
-            $templatePath = ROOT_PATH . '/Json/' . $apiName . '.json';
+            $templatePath = ROOT_PATH . rtrim(C('TEMPLATE_PATH'), '/') . '/' . $apiName . '.json';
             if (file_exists($templatePath)) {
                 $finalContent = file_get_contents($templatePath);
             } else {
@@ -264,7 +273,7 @@ class ProxyController extends BaseController  {
         }
 
         if ($saveAsDefault && !empty($customContent)) {
-            $defaultTemplatePath = ROOT_PATH . '/Json/' . $apiName . '.json';
+            $defaultTemplatePath = ROOT_PATH . rtrim(C('TEMPLATE_PATH'), '/') . '/' . $apiName . '.json';
             $defaultTemplateDir = dirname($defaultTemplatePath);
             if (!is_dir($defaultTemplateDir)) {
                 mkdir($defaultTemplateDir, 0755, true);
@@ -408,7 +417,7 @@ class ProxyController extends BaseController  {
             return;
         }
 
-        $apiListFile = ROOT_PATH . '/Json/api_list.json';
+        $apiListFile = ROOT_PATH . rtrim(C('TEMPLATE_PATH'), '/') . '/api_list.json';
         $existingApis = [];
 
         if (file_exists($apiListFile)) {
@@ -418,10 +427,8 @@ class ProxyController extends BaseController  {
             }
         }
 
-        // 合并去重
         $mergedApis = array_unique(array_merge($existingApis, $newApis));
         
-        // 确保 /Json 目录存在
         $jsonDir = dirname($apiListFile);
         if (!is_dir($jsonDir)) {
             mkdir($jsonDir, 0755, true);
@@ -433,6 +440,159 @@ class ProxyController extends BaseController  {
             $this->ajaxReturn(['success' => true, 'message' => 'API列表已更新']);
         } else {
             $this->ajaxReturn(['success' => false, 'message' => 'API列表写入失败']);
+        }
+    }
+    
+    /**
+     * @description 匹配资源，返回待检测列表
+     * @访问URL: index.php/Proxy/discoverAssets (POST请求)
+     */
+    public function discoverAssetsAction() {
+        header('Content-Type: application/json');
+        $extPath = $_POST['extPath'] ?? null;
+        $jarPath = $_POST['jarPath'] ?? null;
+        $baseConfigUrl = $_POST['baseConfigUrl'] ?? null;
+
+        $assetsToTest = [];
+
+        if ($jarPath) {
+            $assetsToTest[] = $jarPath;
+        }
+        
+        if ($extPath) {
+            $assetsToTest[] = $extPath;
+
+            if (strpos($extPath, './') === 0 && $baseConfigUrl) {
+                $baseDir = dirname($baseConfigUrl);
+                $fullUrl = $baseDir . '/' . ltrim($extPath, './');
+                $urlPath = parse_url($fullUrl, PHP_URL_PATH);
+                $localPath = realpath(ROOT_PATH . $urlPath);
+                
+                $fileContent = null;
+                if ($localPath && file_exists($localPath)) {
+                    $fileContent = file_get_contents($localPath);
+                }
+
+                if ($fileContent) {
+                    preg_match_all('/https?:\/\/[^\s"\']+/i', $fileContent, $matches);
+                    $allUrls = $matches[0] ?? [];
+                    $uniqueDomains = [];
+                // print_r($allUrls);die;
+
+                    foreach ($allUrls as $url) {
+                        $cleanedUrl = preg_replace('/\{[^\}]+\}/', '', $url);
+                        $parts = parse_url($cleanedUrl);
+                        if (isset($parts['scheme']) && isset($parts['host'])) {
+                            $domain = $parts['scheme'] . '://' . $parts['host'];
+                            if (isset($parts['port'])) {
+                                $domain .= ':' . $parts['port'];
+                            }
+                            $uniqueDomains[] = $domain;
+                        }
+                    }
+                    $assetsToTest = array_merge($assetsToTest, array_unique($uniqueDomains));
+                }
+            }
+        }
+        
+        $this->ajaxReturn(['success' => true, 'assets' => array_values(array_unique($assetsToTest))]);
+    }
+
+    /**
+     * @description 检测资源的健康度
+     * @访问URL: index.php/Proxy/testSingleAsset (POST请求)
+     */
+    public function testSingleAssetAction() {
+        header('Content-Type: application/json');
+        $asset = $_POST['asset'] ?? null;
+        $baseConfigUrl = $_POST['baseConfigUrl'] ?? null;
+
+        if (!$asset) {
+            $this->ajaxReturn(['success' => false, 'result' => ['url' => '', 'status' => '参数缺失']]);
+            return;
+        }
+
+        $checkUrlStatus = function($url) {
+            if (empty($url) || !filter_var($url, FILTER_VALIDATE_URL)) {
+                return ['url' => $url, 'status' => '无效URL'];
+            }
+            $result = httpCurl(['url' => $url, 'method' => 'HEAD', 'TIMEOUT' => 2]);
+            if (isset($result['error'])) {
+                return ['url' => $url, 'status' => '请求失败'];
+            }
+            return ['url' => $url, 'status' => $result['info']['http_code']];
+        };
+        
+        $checkFileExistence = function($relativePath, $baseConfigUrl) {
+            $baseDir = dirname($baseConfigUrl);
+            $fullUrl = $baseDir . '/' . ltrim($relativePath, './');
+            
+            $urlPath = parse_url($fullUrl, PHP_URL_PATH);
+            $localPath = realpath(ROOT_PATH . $urlPath);
+
+            if ($localPath && file_exists($localPath)) {
+                return ['url' => $relativePath, 'status' => '存在'];
+            } else {
+                return ['url' => $relativePath, 'status' => '不存在'];
+            }
+        };
+
+        $result = [];
+        if (strpos($asset, './') === 0) {
+            $result = $checkFileExistence($asset, $baseConfigUrl);
+        } else {
+            $result = $checkUrlStatus($asset);
+        }
+
+        $this->ajaxReturn(['success' => true, 'result' => $result]);
+    }
+
+    /**
+     * @description 处理 Jar 文件上传，并保存到当前配置的相对目录
+     * @访问URL: index.php/Proxy/uploadJar (POST请求)
+     */
+    public function uploadJarAction() {
+        header('Content-Type: application/json');
+
+        if (empty($_FILES['jarFile'])) {
+            $this->ajaxReturn(['success' => false, 'message' => '没有文件被上传。']);
+            return;
+        }
+
+        $configPath = $_POST['configPath'] ?? null;
+        if (!$configPath) {
+            $this->ajaxReturn(['success' => false, 'message' => '缺少配置文件路径参数。']);
+            return;
+        }
+        
+        $fileName = basename($_FILES['jarFile']['name']);
+        if (strtolower(pathinfo($fileName, PATHINFO_EXTENSION)) !== 'jar') {
+            $this->ajaxReturn(['success' => false, 'message' => '只允许上传 .jar 文件。']);
+            return;
+        }
+
+        // 计算相对于 /box/ 目录的动态上传路径
+        $baseSaveDir = rtrim(C('DEFAULT_SAVE_PATH'), '/');
+        $configDir = dirname($configPath);
+        $uploadSubDir = '/jar/';
+        
+        $destinationDir = $baseSaveDir . '/' . $configDir . $uploadSubDir;
+        
+        if (!is_dir($destinationDir)) {
+            if (!mkdir($destinationDir, 0755, true)) {
+                $this->ajaxReturn(['success' => false, 'message' => '创建目录失败，请检查服务器权限: ' . $destinationDir]);
+                return;
+            }
+        }
+        
+        $targetPath = $destinationDir . $fileName;
+
+        if (move_uploaded_file($_FILES['jarFile']['tmp_name'], $targetPath)) {
+            // 返回相对于配置文件的相对路径
+            $relativePath = './jar/' . $fileName;
+            $this->ajaxReturn(['success' => true, 'message' => '上传成功！', 'filePath' => $relativePath]);
+        } else {
+            $this->ajaxReturn(['success' => false, 'message' => '文件保存失败，请检查目录权限。']);
         }
     }
 }
