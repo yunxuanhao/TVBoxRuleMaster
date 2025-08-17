@@ -172,8 +172,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        if (url.includes('/box/')) {
-            const pathAfterBox = url.split('/box/')[1];
+        const savePathDir = (window.APP_CONFIG.DEFAULT_SAVE_PATH || './box/').replace(/^\.\/|\/$/g, '');
+        const urlPathSegment = `/${savePathDir}/`;
+
+        if (url.includes(urlPathSegment)) {
+            const pathAfterBox = url.split(urlPathSegment)[1];
             const lastSlashIndex = pathAfterBox.lastIndexOf('/');
             if (lastSlashIndex !== -1) {
                 currentConfigBaseDir = pathAfterBox.substring(0, lastSlashIndex + 1);
@@ -999,110 +1002,112 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {Event} e - 点击事件对象
      */
     async function handleGridItemClick(e) {
-    const itemContainer = e.target.closest('.rule-item-container');
-    if (!itemContainer) return;
-    
-    const itemType = itemContainer.dataset.itemType;
-    const index = parseInt(itemContainer.dataset.index, 10);
-    const itemData = currentRulesData[itemType]?.[index];
+        const itemContainer = e.target.closest('.rule-item-container');
+        if (!itemContainer) return;
+        
+        const itemType = itemContainer.dataset.itemType;
+        const index = parseInt(itemContainer.dataset.index, 10);
+        const itemData = currentRulesData[itemType]?.[index];
 
-    if (!itemData) return;
-    
-    const deleteButton = e.target.closest('.delete-item-btn');
-    if(deleteButton){
-        e.stopPropagation();
-        deleteItem(itemType, index);
-        return;
-    }
-
-    const actionButton = e.target.closest('.action-btn');
-    if(actionButton){
-        e.stopPropagation();
-        const action = actionButton.dataset.action;
-         if (action === 'copy-rule') {
-            ruleClipboard.data = JSON.parse(JSON.stringify(itemData));
-            ruleClipboard.sourceBaseDir = currentConfigBaseDir;
-            showToast(`规则 “${itemData.name}” 已复制到剪贴板`, 'success');
+        if (!itemData) return;
+        
+        const deleteButton = e.target.closest('.delete-item-btn');
+        if(deleteButton){
+            e.stopPropagation();
+            deleteItem(itemType, index);
             return;
         }
-        if (action === 'check-rule') {
-            checkRuleHealth(itemData);
-            return;
-        }
-        if (action === 'test-url' && actionButton.dataset.url) {
-            window.open(actionButton.dataset.url, '_blank');
-        } else if (action === 'edit-file') {
-            updateCurrentRulesDataFromForm();
-            
-            let targetFile = null;
-            const extPath = parseAssetPath(itemData.ext);
-            if (extPath && /\.(json|js|py|txt)$/i.test(extPath)) {
-                targetFile = extPath;
-            }
-            const jarPath = parseAssetPath(itemData.jar);
-            if (!targetFile && jarPath && /\.(js|py)$/i.test(jarPath)) {
-                targetFile = jarPath;
-            }
 
-            if (!targetFile) {
-                showToast('该规则为内置或不可编辑文件类型', 'info');
+        const actionButton = e.target.closest('.action-btn');
+        if(actionButton){
+            e.stopPropagation();
+            const action = actionButton.dataset.action;
+            if (action === 'copy-rule') {
+                ruleClipboard.data = JSON.parse(JSON.stringify(itemData));
+                ruleClipboard.sourceBaseDir = currentConfigBaseDir;
+                showToast(`规则 “${itemData.name}” 已复制到剪贴板`, 'success');
                 return;
             }
+            if (action === 'check-rule') {
+                checkRuleHealth(itemData);
+                return;
+            }
+            if (action === 'test-url' && actionButton.dataset.url) {
+                window.open(actionButton.dataset.url, '_blank');
+            } else if (action === 'edit-file') {
+                updateCurrentRulesDataFromForm();
+                
+                let targetFile = null;
+                const extPath = parseAssetPath(itemData.ext);
+                if (extPath && /\.(json|js|py|txt)$/i.test(extPath)) {
+                    targetFile = extPath;
+                }
+                const jarPath = parseAssetPath(itemData.jar);
+                if (!targetFile && jarPath && /\.(js|py)$/i.test(jarPath)) {
+                    targetFile = jarPath;
+                }
 
-            const isLocal = jsonUrlInput.value.includes(window.location.origin) && jsonUrlInput.value.includes('/box/');
-            let fileUrlPath;
+                if (!targetFile) {
+                    showToast('该规则为内置或不可编辑文件类型', 'info');
+                    return;
+                }
 
-            if (isLocal) {
-                const mainConfigPath = new URL(jsonUrlInput.value).pathname;
-                const baseDir = mainConfigPath.substring(0, mainConfigPath.lastIndexOf('/'));
-                const relativeFilePath = targetFile.replace('./', '');
-                fileUrlPath = `${baseDir}/${relativeFilePath}`.replace('/box/', '');
+                const savePathDir = (window.APP_CONFIG.DEFAULT_SAVE_PATH || './box/').replace(/^\.\/|\/$/g, '');
+                const urlPathSegment = `/${savePathDir}/`;
+                const isLocal = jsonUrlInput.value.includes(window.location.origin) && jsonUrlInput.value.includes(urlPathSegment);
+                let fileUrlPath;
 
-                try {
-                    const response = await fetch(`index.php/Proxy/checkFileExists?path=${encodeURIComponent(fileUrlPath)}`);
-                    const result = await response.json();
-                    if (!result.exists) {
-                        showToast('文件在服务器上不存在，请先下载', 'error');
+                if (isLocal) {
+                    const mainConfigPath = new URL(jsonUrlInput.value).pathname;
+                    const baseDir = mainConfigPath.substring(0, mainConfigPath.lastIndexOf('/'));
+                    const relativeFilePath = targetFile.replace('./', '');
+                    fileUrlPath = `${baseDir}/${relativeFilePath}`.replace('/box/', '');
+
+                    try {
+                        const response = await fetch(`index.php/Proxy/checkFileExists?path=${encodeURIComponent(fileUrlPath)}`);
+                        const result = await response.json();
+                        if (!result.exists) {
+                            showToast('文件在服务器上不存在，请先下载', 'error');
+                            return;
+                        }
+                    } catch (error) {
+                        showToast('检查文件是否存在时出错', 'error');
                         return;
                     }
-                } catch (error) {
-                     showToast('检查文件是否存在时出错', 'error');
-                     return;
+                } else {
+                    const targetDir = document.getElementById('download-dir-input').value.trim();
+                    const targetStatusId = /\.(json|js|py)$/i.test(extPath) ? `site-${index}-ext` : `site-${index}-jar`;
+                    if (downloadStatus[targetStatusId] !== 'downloaded') {
+                        showToast('请先下载此规则文件才能进行编辑', 'error');
+                        return;
+                    }
+                    if (!targetDir) {
+                        showToast('下载目录未设置，无法确定文件路径', 'error');
+                        return;
+                    }
+                    fileUrlPath = `${targetDir}/${targetFile.replace('./', '')}`;
                 }
-            } else {
-                const targetDir = document.getElementById('download-dir-input').value.trim();
-                const targetStatusId = /\.(json|js|py)$/i.test(extPath) ? `site-${index}-ext` : `site-${index}-jar`;
-                if (downloadStatus[targetStatusId] !== 'downloaded') {
-                    showToast('请先下载此规则文件才能进行编辑', 'error');
-                    return;
-                }
-                if (!targetDir) {
-                    showToast('下载目录未设置，无法确定文件路径', 'error');
-                    return;
-                }
-                fileUrlPath = `${targetDir}/${targetFile.replace('./', '')}`;
-            }
-            
-            const openUrl = `index.php/Edit?file=${encodeURIComponent(fileUrlPath)}&api=${encodeURIComponent(itemData.api || '')}`;
-            
-            const editorModal = new Modal({
-                id: 'editor-modal-' + md5(fileUrlPath),
-                title: '编辑 - ' + itemData.name,
-                content: openUrl,
-                width: '50%',
-                height: '70%',
-                showMin: false
-            });
+                
+                const openUrl = `index.php/Edit?file=${encodeURIComponent(fileUrlPath)}&api=${encodeURIComponent(itemData.api || '')}`;
+                
+                new Modal({
+                    id: 'editor-modal-' + md5(fileUrlPath),
+                    title: '编辑 - ' + itemData.name,
+                    content: openUrl,
+                    width: '95%',
+                    height: '95%',
+                    showMin: false
+                });
 
-            editorModal.open();
+                // editorModal.open();
+            }
+        } else {
+            openDetailsModal(itemData, itemType, index);
         }
-    } else {
-         openDetailsModal(itemData, itemType, index);
     }
-}
     
     /**
-     * @description 检测单个规则的资源健康度
+     * @description 检测单个规则的资源健康度 (异步)
      * @param {object} siteData - 被点击的爬虫规则对象
      */
     async function checkRuleHealth(siteData) {
@@ -1110,54 +1115,93 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('该规则没有配置 ext 或 jar 链接，无需检测。', 'info');
             return;
         }
-
+    
+        // 打开弹窗并显示初始加载状态
         showDialog({
             type: 'alert',
             title: `检测报告 - ${siteData.name}`,
-            message: '<div id="health-check-results"><div class="loading-spinner"></div><p style="text-align:center;">正在检测资源，请稍候...</p></div>',
+            message: '<div id="health-check-results"><div class="loading-spinner"></div><p style="text-align:center;">正在发现资源，请稍候...</p></div>',
             okText: '关闭'
-        }).catch(()=>{});
-
+        }).catch(() => {});
+    
         const resultsContainer = document.getElementById('health-check-results');
-        
+    
         try {
-            const formData = new FormData();
-            formData.append('extPath', siteData.ext || '');
-            formData.append('jarPath', siteData.jar || '');
-            formData.append('baseConfigUrl', jsonUrlInput.value);
-
-            const response = await fetch('index.php/Proxy/checkAssetHealth', { method: 'POST', body: formData });
-            const result = await response.json();
-
-            if (!result.success) {
-                throw new Error(result.message);
-            }
-
-            if (result.results.length === 0) {
-                resultsContainer.innerHTML = `<p>未找到任何可检测的链接。</p>`;
+            // 请求后端发现所有待检测资源
+            const discoverFormData = new FormData();
+            discoverFormData.append('extPath', siteData.ext || '');
+            discoverFormData.append('jarPath', siteData.jar || '');
+            discoverFormData.append('baseConfigUrl', jsonUrlInput.value);
+    
+            const discoverResponse = await fetch('index.php/Proxy/discoverAssets', {
+                method: 'POST',
+                body: discoverFormData
+            });
+            const discoverResult = await discoverResponse.json();
+    
+            if (!discoverResult.success || discoverResult.assets.length === 0) {
+                resultsContainer.innerHTML = `<p>未找到任何可检测的资源。</p>`;
                 return;
             }
-
-            let html = '<ul style="list-style:none; padding:0; margin:0;">';
-            result.results.forEach(res => {
-                let statusText = res.status;
-                let statusColor = 'grey';
-                if (statusText === '存在' || (typeof statusText === 'number' && statusText >= 200 && statusText < 400)) {
-                    statusColor = 'green';
-                } else {
-                    statusColor = 'red';
-                }
-                
-                html += `<li style="display:flex; justify-content:space-between; align-items:center; padding: 6px 0; border-bottom: 1px solid #eee;">
-                            <span style="word-break:break-all; font-size: 14px; padding-right: 10px;">${res.url}</span>
-                            <strong style="color:${statusColor}; flex-shrink:0;">${statusText}</strong>
-                         </li>`;
+    
+            // 渲染初始列表，全部显示“检测中”
+            let listHtml = '<ul style="list-style:none; padding:0; margin:0;">';
+            discoverResult.assets.forEach((asset, index) => {
+                // 为每个列表项创建一个唯一的ID
+                const assetId = 'asset-check-' + index;
+                listHtml += `
+                    <li id="${assetId}" style="display:flex; justify-content:space-between; align-items:center; padding: 6px 0; border-bottom: 1px solid #eee;">
+                        <span style="word-break:break-all; font-size: 14px; padding-right: 10px;">${asset}</span>
+                        <strong class="health-status status-pending">检测中...</strong>
+                    </li>
+                `;
             });
-            html += '</ul>';
-            resultsContainer.innerHTML = html;
-
+            listHtml += '</ul>';
+            resultsContainer.innerHTML = listHtml;
+            resultsContainer.querySelector('ul').style.maxHeight = '40vh';
+            resultsContainer.querySelector('ul').style.overflowY = 'auto';
+    
+    
+            // 遍历列表，逐个向后端请求检测
+            for (let i = 0; i < discoverResult.assets.length; i++) {
+                const asset = discoverResult.assets[i];
+                const assetId = 'asset-check-' + i;
+                const listItem = document.getElementById(assetId);
+                const statusElement = listItem.querySelector('strong');
+    
+                const testFormData = new FormData();
+                testFormData.append('asset', asset);
+                testFormData.append('baseConfigUrl', jsonUrlInput.value);
+    
+                try {
+                    const testResponse = await fetch('index.php/Proxy/testSingleAsset', {
+                        method: 'POST',
+                        body: testFormData
+                    });
+                    const testResult = await testResponse.json();
+    
+                    if (testResult.success) {
+                        const { status } = testResult.result;
+                        statusElement.textContent = status;
+                        // 根据状态码更新颜色
+                        if (status === '存在' || (status >= 200 && status < 400)) {
+                            statusElement.className = 'health-status status-success';
+                        } else if (status >= 400 && status < 500) {
+                            statusElement.className = 'health-status status-warning';
+                        } else {
+                            statusElement.className = 'health-status status-error';
+                        }
+                    } else {
+                        statusElement.textContent = '检测出错';
+                        statusElement.className = 'health-status status-error';
+                    }
+                } catch (e) {
+                    statusElement.textContent = '网络错误';
+                    statusElement.className = 'health-status status-error';
+                }
+            }
         } catch (error) {
-            resultsContainer.innerHTML = `<p style="color:red;">检测失败: ${error.message}</p>`;
+            resultsContainer.innerHTML = `<p style="color:red;">处理失败: ${error.message}</p>`;
         }
     }
     
@@ -1172,7 +1216,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (saveBtn) {
         saveBtn.addEventListener('click', () => {
             const url = jsonUrlInput.value.trim();
-            if (!url.startsWith(window.location.origin) || !url.includes('/box/')) {
+            const savePathDir = (window.APP_CONFIG.DEFAULT_SAVE_PATH || './box/').replace(/^\.\/|\/$/g, '');
+            const urlPathSegment = `/${savePathDir}/`;
+
+            if (!url.startsWith(window.location.origin) || !url.includes(urlPathSegment)) {
                 showToast('错误：只能保存在此服务器上的文件！', 'error');
                 return;
             }
@@ -1308,6 +1355,56 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (e.target.id === 'open-selected-file-btn') openSelectedServerFile();
         if (e.target.id === 'ai-helper-close-btn') closeModalById('ai-helper-modal');
+
+        // 监听 "选择" Jar 文件按钮
+        if (e.target.classList.contains('select-jar-btn')) {
+            // 触发它旁边的隐藏的 file input
+            e.target.closest('.input-with-buttons').querySelector('.jar-file-input').click();
+        }
+
+        // 监听 "上传" Jar 文件按钮
+        if (e.target.classList.contains('upload-jar-btn')) {
+            const container = e.target.closest('.input-with-buttons');
+            const fileInput = container.querySelector('.jar-file-input');
+            const jarUrlInput = container.querySelector('textarea, input');
+
+            const savePathDir = (window.APP_CONFIG.DEFAULT_SAVE_PATH || './box/').replace(/^\.\/|\/$/g, '');
+            const urlPathSegment = `/${savePathDir}/`;
+            if (!jsonUrlInput.value.includes(urlPathSegment)) {
+                showToast('请先将主配置下载到本地后再上传资源', 'error');
+                return;
+            }
+
+            if (fileInput.files.length === 0) {
+                showToast('请先选择一个 .jar 文件', 'warning');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('jarFile', fileInput.files[0]);
+
+            const configRelativePath = jsonUrlInput.value.split(urlPathSegment)[1];
+            formData.append('configPath', configRelativePath);
+            
+            showToast('正在上传 Jar 文件...', 'info');
+            fetch('index.php/Proxy/uploadJar', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(result => {
+                if (result.success) {
+                    showToast(result.message, 'success');
+                    jarUrlInput.value = result.filePath; // 自动填充返回的路径
+                    fileInput.value = ''; // 清空文件选择，以便可以重复上传
+                } else {
+                    throw new Error(result.message);
+                }
+            })
+            .catch(err => {
+                showToast(`上传失败: ${err.message}`, 'error');
+            });
+        }
 
         // 处理历史记录项的点击
         if (e.target && e.target.classList.contains('history-item')) {
@@ -1636,7 +1733,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     content: templates.addSiteModal(),
                     footer: '<button id="add-spider-btn-modal" class="btn primary-btn">添加</button>'
                 });
-                // Dynamic updates for the modal
+
                 setTimeout(() => {
                     const addSiteModalElement = document.getElementById('add-site-modal');
                     if(addSiteModalElement) {
@@ -1693,7 +1790,6 @@ document.addEventListener('DOMContentLoaded', () => {
             content: templates.pushModal(),
         });
         
-        // Populate fields after modal is created
         setTimeout(() => {
             const configUrlInput = document.getElementById('push-config-url');
             const tvboxIpInput = document.getElementById('push-tvbox-ip');

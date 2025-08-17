@@ -95,8 +95,19 @@ class Modal {
             showFull: true,
             onClose: null,
         }, options);
+
         this.winboxInstance = null;
+        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        this.resizeHandler = this._handleResize.bind(this);
+        
         this.open();
+    }
+
+    _handleResize() {
+        if (this.winboxInstance && this.isMobile) {
+            this.winboxInstance.resize('100%', '100%').move('center', 'center');
+        }
     }
 
     open() {
@@ -104,28 +115,27 @@ class Modal {
             this.winboxInstance.focus();
             return this;
         }
-
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        
+        document.body.classList.add('body-lock-scroll');
         let controlClasses = [];
-        if (isMobile) {
-            controlClasses.push('no-max');
-        } else {
-            if (!this.options.showMax) controlClasses.push('no-max');
-            if (!this.options.showMin) controlClasses.push('no-min');
-            if (!this.options.showFull) controlClasses.push('no-full');
-        }
+        if (!this.options.showMax) controlClasses.push('no-max');
+        if (!this.options.showMin) controlClasses.push('no-min');
+        if (!this.options.showFull) controlClasses.push('no-full');
 
         const winboxParams = {
             id: this.options.id,
             title: this.options.title,
             class: ["modal-winbox", ...controlClasses],
-            x: isMobile ? 0 : 'center',
-            y: isMobile ? 0 : 'center',
-            width: isMobile ? '100%' : this.options.width,
-            height: isMobile ? '100%' : this.options.height,
-            resize: this.options.resizable,
+            x: 'center',
+            y: 'center',
+            width: this.isMobile ? '100%' : this.options.width,
+            height: this.isMobile ? '100%' : this.options.height,
+            resize: this.isMobile ? false : this.options.resizable,
             onclose: () => {
+                document.body.classList.remove('body-lock-scroll');
+
+                if (this.isMobile) {
+                    window.removeEventListener('resize', this.resizeHandler);
+                }
                 if (typeof this.options.onClose === 'function') {
                     this.options.onClose();
                 }
@@ -136,12 +146,12 @@ class Modal {
                 return false;
             }
         };
-
+        
         if (typeof this.options.content === 'string' && (this.options.content.startsWith('http') || this.options.content.startsWith('/') || this.options.content.startsWith('index.php'))) {
             winboxParams.url = this.options.content;
         } else {
             const mainContentHtml = `<div class="modal-main-content">${this.options.content || ''}</div>`;
-            const footerHtml = this.options.footer ? `<div class="modal-footer">${this.options.footer}</div>` : '';
+            const footerHtml = `<div class="modal-footer">${this.options.footer || ''}</div>`;
             winboxParams.html = mainContentHtml + footerHtml;
         }
 
@@ -149,9 +159,14 @@ class Modal {
         if (this.options.id) {
             activeModals[this.options.id] = this;
         }
+
+        if (this.isMobile) {
+            window.addEventListener('resize', this.resizeHandler);
+        }
+
         return this;
     }
-
+    
     close() {
         if (this.winboxInstance) {
             this.winboxInstance.close();
@@ -162,12 +177,15 @@ class Modal {
         return this.winboxInstance?.body.querySelector('.modal-main-content');
     }
 
+    getFooterElement() {
+        return this.winboxInstance?.body.querySelector('.modal-footer');
+    }
+
     maximize() {
         this.winboxInstance?.maximize();
         return this;
     }
 }
-
 
 /**
  * @description 通过ID关闭一个WinBox窗口
@@ -193,6 +211,7 @@ function showDialog(options) {
     }, options);
 
     return new Promise((resolve, reject) => {
+        document.body.classList.add('body-lock-scroll');
         const overlay = document.createElement('div');
         overlay.className = 'dialog-overlay';
 
@@ -225,6 +244,7 @@ function showDialog(options) {
         const cancelBtn = overlay.querySelector('.cancel-btn');
 
         const closeDialog = (reason) => {
+            document.body.classList.remove('body-lock-scroll');
             overlay.classList.remove('visible');
             const handleTransitionEnd = () => {
                 overlay.removeEventListener('transitionend', handleTransitionEnd);
@@ -233,7 +253,7 @@ function showDialog(options) {
                     const result = config.type === 'prompt' ? inputElement.value : true;
                     resolve(result);
                 } else {
-                    reject();
+                    reject(new Error('Dialog cancelled by user.'));
                 }
             };
             overlay.addEventListener('transitionend', handleTransitionEnd);
