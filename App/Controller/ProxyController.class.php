@@ -595,4 +595,42 @@ class ProxyController extends BaseController  {
             $this->ajaxReturn(['success' => false, 'message' => '文件保存失败，请检查目录权限。']);
         }
     }
+
+    /**
+     * 复制单个资源文件（用于粘贴功能）
+     * 访问URL: index.php/Proxy/copyAsset (POST请求)
+     */
+    public function copyAssetAction() {
+        $sourceBasePath = sanitize_path($_POST['sourceBasePath'] ?? '');
+        $targetBasePath = sanitize_path($_POST['targetBasePath'] ?? '');
+        $assetRelativePath = sanitize_path($_POST['assetRelativePath'] ?? '');
+
+        if (!$assetRelativePath) {
+            $this->ajaxReturn(['success' => false, 'message' => '缺少资源路径']);
+        }
+
+        // 构建源和目标文件的完整服务器路径
+        $sourceFullPath = $this->baseSaveDir . $sourceBasePath . str_replace('./', '', $assetRelativePath);
+        $targetFullPath = $this->baseSaveDir . $targetBasePath . str_replace('./', '', $assetRelativePath);
+
+        if (!file_exists($sourceFullPath)) {
+            // 源文件不存在，这不一定是个错误（可能是空字段），所以静默处理
+            $this->ajaxReturn(['success' => true, 'message' => '源文件不存在，无需复制']);
+            return;
+        }
+
+        $targetDir = dirname($targetFullPath);
+        if (!is_dir($targetDir)) {
+            if (!mkdir($targetDir, 0755, true)) {
+                $this->ajaxReturn(['success' => false, 'message' => '创建目标目录失败']);
+                return;
+            }
+        }
+        
+        if (copy($sourceFullPath, $targetFullPath)) {
+            $this->ajaxReturn(['success' => true, 'message' => '资源复制成功']);
+        } else {
+            $this->ajaxReturn(['success' => false, 'message' => '资源复制失败']);
+        }
+    }
 }
