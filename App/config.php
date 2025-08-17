@@ -16,11 +16,51 @@ return array(
      */
     'REWRITE' => false,
 
+    // =======================================================
+    // TVBox 应用配置
+    // =======================================================
+
+    /**
+     * @var string 配置规则的默认存储位置
+     * 所有通过“下载”功能保存的规则和资源，以及在线编辑的文件，都将存放在此目录下。
+     * 必须以 './' 开头，以 '/' 结尾。
+     */
+    'DEFAULT_SAVE_PATH' => './box/',
+
+    /**
+     * @var string 配置模板的存储位置
+     * 用于存放 api_list.json 和新建规则时使用的模板文件。
+     * 必须以 './' 开头，以 '/' 结尾。
+     */
+    'TEMPLATE_PATH' => './Json/',
+
+    /**
+     * @var bool 是否开启代理缓存
+     * 用于缓存通过 /Proxy/load 接口加载的远程URL内容，可提升重复加载速度。
+     * 在调试规则时可设置为 false 以获取实时内容。
+     */
+    'ENABLE_PROXY_CACHE' => true,
+
+    /**
+     * @var string 代理缓存目录
+     * 用于存放通过 /Proxy/load 接口加载的远程URL内容缓存。
+     * 必须以 './' 开头，以 '/' 结尾。
+     * 注意：如果开启了代理缓存，必须确保此目录可写。
+     */
+    'PROXY_CACHE_PATH' => './cache/',
+
+    /**
+     * @var string 代理缓存过期时间
+     * 用于设置通过 /Proxy/load 接口加载的远程URL内容缓存过期时间，单位为秒。
+     */
+    'PROXY_CACHE_EXPIRE' => 3600,
+
+
     /**
      * 其他应用配置
      */
     'PASSWORD' => 'tvbox',
-    'NEED_LOGIN' => true,
-    'USE_SESSION' => true,
+    'NEED_LOGIN' => false,
+    'USE_SESSION' => false,
     'PC_UA' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36'
 );
